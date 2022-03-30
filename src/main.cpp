@@ -27,7 +27,6 @@
 #include <string.h>
 #include <time.h>
 #include <LittleFS.h>
-#include <WiFiManager.h> 	// https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 #include <SPI.h>
 #include <TFT_eSPI.h> 		// Hardware-specific library
 #include <TimeLib.h>
@@ -53,7 +52,7 @@ TFT_eSPI tft = TFT_eSPI();
 
 // use openweather setup
 String ApiKey = API_KEY;
-String CityId = "2920512"; // Giessen
+String CityId = "2920512"; 	// Giessen
 const char Server[] = "api.openweathermap.org";
 StaticJsonDocument<2000> doc; 						 // JSON Dokument erstellen
 
@@ -174,115 +173,6 @@ void loop(void) {
 }
 
 // ---------------------------------------------------------------------------------------------------
-// Aktiviere Weckzeiten mit Taster 
-// Zum Starten muss die Taste 5sec lang gedückt werden
-// ---------------------------------------------------------------------------------------------------
-// Tastendruck 		Wecker 1		Wecker 2
-//       1             1               0
-//       2             0               1
-//       3             1               1
-//       4             0               0
-// ---------------------------------------------------------------------------------------------------
-bool WeckzeitAkivieren(clIn *Taste) {
-	static uint16_t u16Status = 0;
-	static uint16_t u16StateOld = 1;
-	static uint16_t u16Count = 0;
-	static uint32_t u32AktuelleZeit = 0;
-	static uint32_t u32AktiveZeit = 0;
-
-	bool bResult = false;
-
-	if (u16Status != u16StateOld)
-	{
-		Serial.println(TraceTime() + "WA Status - " + String(u16Status));
-		u16StateOld = u16Status;
-	}
-
-	switch(u16Status) {
-		case 0:
-			bResult = true;
-			if (Taste->Status()) {
-				u32AktuelleZeit = millis();
-				u16Status = 10;
-			}
-			break;
-		case 10:
-			if ((millis() - u32AktuelleZeit) >= 3000) {
-				if (Taste->Status()) {
-					if (Wecker1.GetStatus() && Wecker2.GetStatus()) {
-						u16Count = 3;
-					} else if (Wecker1.GetStatus()) {
-						u16Count = 1;
-					} else if (Wecker2.GetStatus()) {
-						u16Count = 2;
-					} else {
-						u16Count = 0;
-					}
-					u32AktiveZeit = millis();
-					u16Status = 20;
-				}
-			} else if (!Taste->Status()) {
-				u16Status = 0;
-			}
-			break;
-		case 20:
-			if (Taste->Status()) {
-				switch(u16Count) {
-					case 0: 
-						Wecker1.Start(); 
-						Wecker2.Stop();  
-						sprintf(Wecker1_Aktiv, "*");
-						sprintf(Wecker2_Aktiv, " ");
-						u16Count++;   
-						break;
-					case 1: 
-						Wecker1.Stop();  
-						Wecker2.Start(); 
-						sprintf(Wecker1_Aktiv, " ");
-						sprintf(Wecker2_Aktiv, "*");
-						u16Count++;   
-						break;
-					case 2:	
-						Wecker1.Start(); 
-						Wecker2.Start(); 
-						sprintf(Wecker1_Aktiv, "*");
-						sprintf(Wecker2_Aktiv, "*");
-						u16Count++;   
-						break;
-					case 3:	
-						Wecker1.Stop();  
-						Wecker2.Stop();  
-						sprintf(Wecker1_Aktiv, " ");
-						sprintf(Wecker2_Aktiv, " ");
-						u16Count = 0; 
-						break;
-					default: 
-						u16Count = 0; 
-						break;				
-				}
-				u32AktuelleZeit = millis();
-				u16Status = 30;
-			}
-
-			if (millis() > (u32AktiveZeit + 2000)) {
-				saveWeckerConfig();
-				u16Status = 0;
-			}
-			break;
-		case 30:
-			if (!Taste->Status()) {
-				u32AktiveZeit = millis();
-				u16Status = 20;
-			}
-			break;
-		default:
-			u16Status = 0;
-			break;
-	}
-	return bResult;
-}
-
-// ---------------------------------------------------------------------------------------------------
 // Display Funktionen
 // ---------------------------------------------------------------------------------------------------
 void zeigeBeschriftung(void) {
@@ -310,7 +200,7 @@ void zeigeVersion(void) {
 // Funktionen zu den Menüpunkten
 // ---------------------------------------------------------------------------------------------------
 bool runHauptMenue(void) {
-	return WeckzeitAkivieren(&sw02);
+	return clWecken::WeckzeitAkivieren(&sw02);
 } 
 
 bool runWeckzeit1(void) {
@@ -812,11 +702,21 @@ void saveWeckerConfig(void) {
 	DynamicJsonDocument json(1024);
 	json["Wecker1_Stunden"] = Wecker1_Stunden;
    	json["Wecker1_Minuten"] = Wecker1_Minuten;
-	json["Wecker1_Aktiv"] = Wecker1_Aktiv;  
+	
+	if (Wecker1.getStatus()) {
+		json["Wecker1_Aktiv"] = "*";  
+	} else {
+		json["Wecker1_Aktiv"] = " ";  
+	}
 
     json["Wecker2_Stunden"] = Wecker2_Stunden;
    	json["Wecker2_Minuten"] = Wecker2_Minuten;
-	json["Wecker2_Aktiv"] = Wecker2_Aktiv;  
+	
+	if (Wecker2.getStatus()) {
+		json["Wecker2_Aktiv"] = "*";  
+	} else {
+		json["Wecker2_Aktiv"] = " ";  
+	}
 
     File configFile = LittleFS.open("/config.json", "w");
     if (!configFile) {
