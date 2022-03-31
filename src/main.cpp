@@ -36,8 +36,10 @@
 #include "TFT22-Uhr.h"
 
 // ---------------------------------------------------------------------------------------------------
-// in dieser Datei steht das define für API_KEY. Die Datei muss noch angelegt werden,
+// in dieser Datei steht das define für API_KEY und CITY_KEY. Die Datei muss noch angelegt werden,
 // sie ist nicht Bestandteil des Repository
+// #define API_KEY "1234567890abcdefghijklmnopqrst..."
+// #define CITY_KEY "1234..."
 // ---------------------------------------------------------------------------------------------------
 #include "config.h"
 // ---------------------------------------------------------------------------------------------------
@@ -52,7 +54,7 @@ TFT_eSPI tft = TFT_eSPI();
 
 // use openweather setup
 String ApiKey = API_KEY;
-String CityId = "2920512"; 	// Giessen
+String CityId = CITY_KEY; 
 const char Server[] = "api.openweathermap.org";
 StaticJsonDocument<2000> doc; 						 // JSON Dokument erstellen
 
@@ -100,7 +102,7 @@ char Wecker2_Aktiv[2] = {" "};
 bool shouldSaveConfig = false;
 
 // Menueverwaltung
-clMenue Menue(&sw01, zeigeText);
+clMenue Menue(&sw01, zeigeStatusZeile);
 menue_t MenueEintrag [6] = { 
 	{runHauptMenue, String("Uhrzeit / Weckzeiten"), false},
 	{runWeckzeit1,  String("Weckzeit 1 stellen"),   false},
@@ -172,27 +174,27 @@ void loop(void) {
 }
 
 // ---------------------------------------------------------------------------------------------------
-// Display Funktionen
+// Anzeige Statuszeile
 // ---------------------------------------------------------------------------------------------------
 void zeigeBeschriftung(void) {
-	String strText = WiFi.SSID();
-	strText += String(" - ");
-	strText += WiFi.localIP().toString(); 
-
-	tft.fillRect(5, yBottom + 10, tftWidth - 10, hBottom - 20, TFT_BLACK);
-	tft.setTextColor(TFT_YELLOW);
-	tft.drawCentreString(strText, tftWidth / 2, yBottom + 12, 1);
+	String strText = WiFi.SSID() + String(" - ") + WiFi.localIP().toString();
+	zeigeStatusZeile(strText);
 }
 
 void zeigeVersion(void) {
-	String strText = String("Ver. "); 
-	strText += String(cVersion);
-	strText += String(" - ");
-	strText += String(cDatum); 
+	String strText = String("Ver. ") + String(cVersion) + String(" - ") + String(cDatum); 
+	zeigeStatusZeile(strText);
+}
 
+void zeigeWetter(void) {
+	String strText = String(tempNow) + String(char(247)) + String("C, ") + String(weatherNowData);
+	zeigeStatusZeile(strText);
+}
+
+void zeigeStatusZeile(String strData) {
 	tft.fillRect(5, yBottom + 10, tftWidth - 10, hBottom - 20, TFT_BLACK);
 	tft.setTextColor(TFT_YELLOW);
-	tft.drawCentreString(strText, tftWidth / 2, yBottom + 12, 1);
+	tft.drawCentreString(strData, tftWidth / 2, yBottom + 12, 1);
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -318,7 +320,7 @@ bool runWetter(void) {
 		case 0:
 			bResult = true;
 			if (sw02.Status()) {
-				zeigeWait();
+				zeigeStatusZeile(String("Warte auf Wetterdaten"));
 				u16Status = 10;
 			}
 			break;
@@ -367,9 +369,9 @@ bool runDeleteFile(void) {
 			break;
 		case 10:
 			if (LittleFS.remove(cFile)) {
-				zeigeText(String("Konfig. deleted"));
+				zeigeStatusZeile(String("Konfig. deleted"));
 			} else {
-				zeigeText(String("Fehler bei delete"));
+				zeigeStatusZeile(String("Fehler bei delete"));
 			}
 			u32Timer = millis();
 			u16Status = 20;
@@ -386,29 +388,6 @@ bool runDeleteFile(void) {
 	}
 	
 	return bResult;
-}
-
-// -----------------------------------------------------------------------------------
-// Wetter Anzeige
-// -----------------------------------------------------------------------------------
-void zeigeWetter(void) {
-	String strText = String(tempNow) + String(char(247)) + String("C, ") + String(weatherNowData);
-	tft.fillRect(5, yBottom + 10, tftWidth - 10, hBottom - 20, TFT_BLACK);
-	tft.setTextColor(TFT_YELLOW);
-	tft.drawCentreString(strText, tftWidth / 2, yBottom + 12, 1);
-}
-
-void zeigeWait(void) {
-	String strText = "Warte auf Wetterdaten";
-	tft.fillRect(5, yBottom + 10, tftWidth - 10, hBottom - 20, TFT_BLACK);
-	tft.setTextColor(TFT_YELLOW);
-	tft.drawCentreString(strText, tftWidth / 2, yBottom + 12, 1);
-}
-
-void zeigeText(String strText) {
-	tft.fillRect(5, yBottom + 10, tftWidth - 10, hBottom - 20, TFT_BLACK);
-	tft.setTextColor(TFT_YELLOW);
-	tft.drawCentreString(strText, tftWidth / 2, yBottom + 12, 1);
 }
 
 void zeigeRahmen(void) {
@@ -430,10 +409,9 @@ void zeigeDatumUhr(struct tm actTimeinfo) {
 	strZeit += String(str);
 
 	// akuelle Zeit nur neu schreiben wenn sich die Zeit geändert hat
-	if (strZeitOld != strZeit)
-	{
+	if (strZeitOld != strZeit) {
 		tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-		tft.drawCentreString(strZeit, tftWidth / 2, 14, 1);
+		tft.drawCentreString(strZeit, tftWidth / 2, 12, 1);
 		strZeitOld = strZeit;
 	}
 }
@@ -466,13 +444,13 @@ void zeigeWeckzeiten(void) {
 // -----------------------------------------------------------------------------------------------------
 void zeigeUhrzeit(struct tm actTimeinfo) {
 	static uint16_t u16State = 0;
-	char str[10];
+	char str[8];
 	String strZeit;
 
 	switch (u16State)  	{
 		case 0: 	// Zeitanzeige initialisieren wenn die NTP Abfrage zum 1. mal komplett ist
 			tft.setFreeFont(NULL);
-			tft.drawCentreString("NTP Abfrage", tftWidth / 2, 145, 1);
+			tft.drawCentreString("Warte auf Zeitserver", tftWidth / 2, 90, 1);
 			u16State = 5;
 			break;
 		case 5: 	// Abfrage ob Jahr > 2000 (1900 + 100) ist
@@ -495,15 +473,11 @@ void zeigeUhrzeit(struct tm actTimeinfo) {
 			tft.setFreeFont(FF20);
 			tft.setTextColor(TFT_YELLOW, TFT_BLACK);
 			sprintf(str, "%u:%02u", actTimeinfo.tm_hour, actTimeinfo.tm_min);
-			if (actTimeinfo.tm_hour == 0) {
-				strZeit = String(" ") + String(str) + String(" ");
-			} else {
-				strZeit = String(str);
-			}
+			strZeit = String(str);
 			
-			tft.fillRect(40, yMiddle + 20, tftWidth - 80, hMiddle - 50, TFT_BLACK);
+			tft.fillRect(15, yMiddle + 12, tftWidth - 30, hMiddle - 70, TFT_BLACK);
 			tft.drawCentreString(strZeit, tftWidth / 2, (tftHeight / 2) - 60, 1);
-
+			
 			u16State = 30;
 			break;
 		case 30: 	// wrate bis Skunden != 0
@@ -589,7 +563,7 @@ void initDisplay(void) {
 
 	tft.setTextColor(TFT_WHITE, TFT_BLACK);
 	tft.setCursor(0, 30);
-	tft.setTextSize(2);
+	tft.setTextSize(2);				// alle Schriftgrössen * 2
 
 	tftWidth = tft.width();
 	tftHeight = tft.height();
