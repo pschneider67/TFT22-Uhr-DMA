@@ -138,10 +138,10 @@ void setup() {
 	configTime(MY_TZ, MY_NTP_SERVER);
 
 	initFs();	// lese Konfig Daten für die Wecker
-
+	
 	Wecker1.setTime(&WeckZeit1);
 	Wecker2.setTime(&WeckZeit2);
-
+	
 	Serial.println();
 	Serial.println("--------------------------------------");
 	Serial.println("- TFT2.2 Uhr SPI                     -");
@@ -161,8 +161,7 @@ void loop(void) {
 	time(&actualTime);					 	// aktuelle Zeit lesen
 	localtime_r(&actualTime, &timeinfo); 	// timeinfo mit aktueller Zeit beschreiben
 
-	Wecker1.Check();						// Weckzeit prüfen und ggf. Wecken
-	Wecker2.Check();
+	clWecken::Check();						// Weckzeit prüfen und ggf. Wecken
 
 	zeigeUhrzeit(timeinfo);	 				// Uhrzeit groß anzeigen
 	zeigeDatumUhr(timeinfo); 				// Datum und Uhrzeit in oberer Zeile anzeigen

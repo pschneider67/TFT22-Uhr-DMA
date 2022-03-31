@@ -41,11 +41,11 @@ class clWecken {
         bool getStatus(void);
 
         void setTime(stWeckZeit *_WeckZeit);
-        void Check(void);
         void Start(void); 
         void Stop(void);
 
         static bool WeckzeitAkivieren(clIn *_Taster);
+        static void Check(void);
 
     private:
         clOut *Summer;
@@ -71,6 +71,7 @@ class clWecken {
         uint32_t u32Timer2;
 
         bool bRun;
+        bool bTagOk;
         bool bAktive;
         bool bStelleStunden;
         bool bStelleMinuten;
