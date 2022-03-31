@@ -23,6 +23,7 @@ clWecken::clWecken (struct tm *_AktuelleZeit, clOut *_Summer, clIn *_Taster) {
     AktuelleZeit = _AktuelleZeit;
                 
     bAktive = false;
+    bTagOk = false;
     bRun = false;
     bStelleStunden = false;
     bStelleMinuten = false;
@@ -173,80 +174,6 @@ bool clWecken::getStatus(void) {
     return bAktive;
 }
 
-void clWecken::Check(void) {
-    bool bTagOk = false;
-
-    // Prüfe ob Weckzeit aktiv ist    
-    if (!bAktive) {
-        return;
-    }
-
-    // Prüfe ob der Wecker aktiv ist
-    if (WeckZeit.Wochentag == (WOCHEN_TAG)AktuelleZeit->tm_wday) {
-        bTagOk = true;        
-    } else if (WeckZeit.Wochentag == WOCHEN_TAG::ALL) {
-        bTagOk = true;
-    } else if (WeckZeit.Wochentag == WOCHEN_TAG::AT) {
-        if ((AktuelleZeit->tm_wday > (uint16_t)WOCHEN_TAG::SO) && 
-            (AktuelleZeit->tm_wday < (uint16_t)WOCHEN_TAG::SA)) {
-                bTagOk = true;
-        }
-    } else if (WeckZeit.Wochentag == WOCHEN_TAG::WE) {
-        if ((AktuelleZeit->tm_wday == (uint16_t)WOCHEN_TAG::SO) ||
-            (AktuelleZeit->tm_wday == (uint16_t)WOCHEN_TAG::SA)) {
-                bTagOk = true;
-        }
-    }
-
-    // Abfrage od der richtige Tag für die Weckzeit erreicht ist
-    if (!bTagOk) {
-        return;
-    }
-
-    // Weckenton ausschalten
-    if (Taster->Status()) {
-        u16Status = 30;
-    }
-
-    switch (u16Status) {
-        case 0:
-            if ((WeckZeit.u16Minute == AktuelleZeit->tm_min) && (WeckZeit.u16Stunde == AktuelleZeit->tm_hour)) {
-                u16Count = 0;
-                u32Delay = millis();
-                Summer->On();
-                u16Status = 10;
-            }
-            break;
-        case 10:
-            if (millis() > (u32Delay + 500)) {
-                u32Delay = millis();
-                Summer->Off();
-                u16Status = 20;
-            }
-            break;
-        case 20:
-            if (u16Count >= 100) {
-                u16Status = 30;
-            } else if (millis() > (u32Delay + 500)) {
-                u16Count++;
-                u32Delay = millis();
-                Summer->On();
-                u16Status = 10;
-            }
-            break;
-        case 30:
-            Summer->Off();
-            if (WeckZeit.u16Minute != AktuelleZeit->tm_min) {
-                u16Status = 0;
-            }
-            break;   
-        default:
-            Summer->Off();
-            u16Status = 0;
-            break;
-    }
-}
-
 bool clWecken::inkZeit (uint16_t *_u16Zeit, uint16_t _u16Grenze) {
     bool bResult = false;
 
@@ -308,18 +235,11 @@ bool clWecken::inkZeit (uint16_t *_u16Zeit, uint16_t _u16Grenze) {
 // ---------------------------------------------------------------------------------------------------
 bool clWecken::WeckzeitAkivieren(clIn *_Taster) {
    	static uint16_t u16Status = 0;
-	static uint16_t u16StateOld = 1;
 	static uint16_t u16Count = 0;
 	static uint32_t u32AktuelleZeit = 0;
 	static uint32_t u32AktiveZeit = 0;
 
 	bool bResult = false;
-
-	if (u16Status != u16StateOld)
-	{
-		Serial.println(TraceTime() + "WA Status - " + String(u16Status));
-		u16StateOld = u16Status;
-	}
 
 	switch(u16Status) {
 		case 0:
@@ -332,11 +252,11 @@ bool clWecken::WeckzeitAkivieren(clIn *_Taster) {
 		case 10:
 			if ((millis() - u32AktuelleZeit) >= 3000) {
 				if (_Taster->Status()) {
-					if (pclWecken[0]->getStatus() && pclWecken[1]->getStatus()) {
+					if (pclWecken[0]->bAktive && pclWecken[1]->bAktive) {
 						u16Count = 3;
-					} else if (pclWecken[0]->getStatus()) {
+					} else if (pclWecken[0]->bAktive) {
 						u16Count = 1;
-					} else if (pclWecken[1]->getStatus()) {
+					} else if (pclWecken[1]->bAktive) {
 						u16Count = 2;
 					} else {
 						u16Count = 0;
@@ -395,4 +315,80 @@ bool clWecken::WeckzeitAkivieren(clIn *_Taster) {
 			break;
 	}
 	return bResult;
+}
+
+void clWecken::Check(void) {
+    static uint16_t u16sCount = 0;
+     
+    for (u16sCount = 0; u16sCount < sWeckerNr; u16sCount++) {
+        pclWecken[u16sCount]->bTagOk = false;
+
+        // Prüfe ob der Wecker aktiv ist
+        if (pclWecken[u16sCount]->WeckZeit.Wochentag == (WOCHEN_TAG)pclWecken[u16sCount]->AktuelleZeit->tm_wday) {
+            pclWecken[u16sCount]->bTagOk = true;        
+        } else if (pclWecken[u16sCount]->WeckZeit.Wochentag == WOCHEN_TAG::ALL) {
+            pclWecken[u16sCount]->bTagOk = true;
+        } else if (pclWecken[u16sCount]->WeckZeit.Wochentag == WOCHEN_TAG::AT) {
+            if ((pclWecken[u16sCount]->AktuelleZeit->tm_wday > (uint16_t)WOCHEN_TAG::SO) && 
+                (pclWecken[u16sCount]->AktuelleZeit->tm_wday < (uint16_t)WOCHEN_TAG::SA)) {
+                    pclWecken[u16sCount]->bTagOk = true;
+            }
+        } else if (pclWecken[u16sCount]->WeckZeit.Wochentag == WOCHEN_TAG::WE) {
+            if ((pclWecken[u16sCount]->AktuelleZeit->tm_wday == (uint16_t)WOCHEN_TAG::SO) ||
+                (pclWecken[u16sCount]->AktuelleZeit->tm_wday == (uint16_t)WOCHEN_TAG::SA)) {
+                    pclWecken[u16sCount]->bTagOk = true;
+            }
+        }
+     
+        // Weckenton ausschalten
+        if (pclWecken[u16sCount]->Taster->Status()) {
+            pclWecken[u16sCount]->u16Status = 30;
+        }
+
+        switch (pclWecken[u16sCount]->u16Status) {
+            case 0:
+                if (pclWecken[u16sCount]->bTagOk && pclWecken[u16sCount]->bAktive) {
+                    pclWecken[u16sCount]->u16Status = 5; 
+                }
+                break;
+            case 5:
+                if (!pclWecken[u16sCount]->bTagOk || !pclWecken[u16sCount]->bAktive) {
+                    pclWecken[u16sCount]->u16Status = 0;     
+                } else if ((pclWecken[u16sCount]->WeckZeit.u16Minute == pclWecken[u16sCount]->AktuelleZeit->tm_min) && 
+                           (pclWecken[u16sCount]->WeckZeit.u16Stunde == pclWecken[u16sCount]->AktuelleZeit->tm_hour)) {
+                    pclWecken[u16sCount]->u16Count = 0;
+                    pclWecken[u16sCount]->u32Delay = millis();
+                    pclWecken[u16sCount]->Summer->On();
+                    pclWecken[u16sCount]->u16Status = 10;
+                }
+                break;
+            case 10:
+                if (millis() > (pclWecken[u16sCount]->u32Delay + 500)) {
+                    pclWecken[u16sCount]->u32Delay = millis();
+                    pclWecken[u16sCount]->Summer->Off();
+                    pclWecken[u16sCount]->u16Status = 20;
+                }
+                break;
+            case 20:
+                if (pclWecken[u16sCount]->u16Count >= 100) {
+                    pclWecken[u16sCount]->u16Status = 30;
+                } else if (millis() > (pclWecken[u16sCount]->u32Delay + 500)) {
+                    pclWecken[u16sCount]->u16Count++;
+                    pclWecken[u16sCount]->u32Delay = millis();
+                    pclWecken[u16sCount]->Summer->On();
+                    pclWecken[u16sCount]->u16Status = 10;
+                }
+                break;
+            case 30:
+                pclWecken[u16sCount]->Summer->Off();
+                if (pclWecken[u16sCount]->WeckZeit.u16Minute != pclWecken[u16sCount]->AktuelleZeit->tm_min) {
+                    pclWecken[u16sCount]->u16Status = 0;
+                }
+                break;   
+            default:
+                pclWecken[u16sCount]->Summer->Off();
+                pclWecken[u16sCount]->u16Status = 0;
+                break;
+        }
+    }
 }
