@@ -425,7 +425,7 @@ void zeigeDatumUhr(struct tm actTimeinfo) {
 	String strZeit;
 
 	strZeit = String(WeekDay[actTimeinfo.tm_wday]);
-	sprintf(str, "%02u.%02u.%4u - ", actTimeinfo.tm_mday, actTimeinfo.tm_mon, 1900 + actTimeinfo.tm_year);
+	sprintf(str, "%02u.%02u.%4u - ", actTimeinfo.tm_mday, actTimeinfo.tm_mon + 1, 1900 + actTimeinfo.tm_year);
 	strZeit += String(str);
 	sprintf(str, "%02u:%02u:%02u", actTimeinfo.tm_hour, actTimeinfo.tm_min, actTimeinfo.tm_sec);
 	strZeit += String(str);

@@ -20,6 +20,8 @@ enum class GBL_STATUS: uint16_t {
 	READY = 4
 };
 
+#include <WiFiManager.h> 	// https://github.com/tzapu/WiFiManager WiFi Configuration Magic
+
 #include "psOutput.h"
 #include "psInput.h"
 #include "Wecker.h"
@@ -31,11 +33,10 @@ enum class GBL_STATUS: uint16_t {
 *WM: IP Address:
 *WM: 192.168.2.10
 Konfigration der Interrupts
-Gbl. Status - 0
+
 Warte auf Zeitserver
 Aktuelle Zeit wurde geladen
-Gbl. Status - 30
-Gbl. Status - 40
+
 HTTP/1.1 200 OK
 Server: openresty
 Date: Mon, 15 Jun 2020 19:35:24 GMT
@@ -57,8 +58,6 @@ Luftdruck           : 1022.00 hpa
 Windgeschwindigkeit : 0.73 km/h
 Beschreibung        : Bedeckt
 ------------------------------------------------------------
-
-Gbl. Status - 50
 */
 
 // ---------------------------------------------------------------------------------------------------

@@ -23,13 +23,13 @@ class clMenue {
             cbAnzeige = _cbAnzeige;
         }
 
-        void Verwaltung(menue_t *MenueEintrag) {
-            bFertig = MenueEintrag[u16MenueCount]._cb();
+        void Verwaltung(menue_t *_MenueEintrag) {
+            bFertig = _MenueEintrag[u16MenueCount]._cb();
 
             switch (u16Status) {
                 case 0:     // init
                     u16MenueCount = 0;
-                    cbAnzeige(MenueEintrag[u16MenueCount]._Name);
+                    cbAnzeige(_MenueEintrag[u16MenueCount]._Name);
                     if (!Taster->Status()) {
                         u16Status = 10;
                     }
@@ -49,12 +49,12 @@ class clMenue {
                     break;
                 case 30:    // Menü um 1 weiterschalten
                     if (bFertig) {
-                        if (MenueEintrag[u16MenueCount].bLastItem) {
+                        if (_MenueEintrag[u16MenueCount].bLastItem) {
                             u16MenueCount = 0;
                         } else {
                             u16MenueCount++;
                         }
-                        cbAnzeige(MenueEintrag[u16MenueCount]._Name);   
+                        cbAnzeige(_MenueEintrag[u16MenueCount]._Name);   
                         u16Status = 40;
                     }
                     break;
