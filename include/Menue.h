@@ -40,7 +40,7 @@ class clMenue {
                         u16Status = 20;
                     }
                     break;
-                case 20:    // Zum Starten muss der Taster 3s lang gedrückt werden
+                case 20:    // Zum Starten muss der Taster 2s lang gedrückt werden
                     if (millis() > (u32Timer + 2000)) {
                         u16Status = 30;
                     } else if (!Taster->Status()) {

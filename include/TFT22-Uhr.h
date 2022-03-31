@@ -109,6 +109,7 @@ void zeigeRahmen(void);
 void zeigeDatumUhr(struct tm);
 void zeigeUhrzeit(struct tm);
 void zeigeWeckzeiten(void);
+void zeigeStatusZeile(String strData); 
 bool WeckzeitAkivieren(clIn *);
 void displayHelligkeit(void);
 void initGpio(void);
@@ -125,8 +126,6 @@ GBL_STATUS getWeather(void);
 GBL_STATUS getWeatherDataState (void);
 void getWeatherData(void);
 String WetterDatenAusJson(String WetterDaten);
-void zeigeWait(void);
-void zeigeText(String);
 
 bool runHauptMenue(void); 
 bool runWeckzeit1(void);

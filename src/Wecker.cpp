@@ -51,8 +51,7 @@ String clWecken::getWeckMinute(void) {
 
 String clWecken::getTimeString(void) {
     char cStr[25];
-    String Ausgabe;
-
+   
     if (bAktive) {
         sprintf(cStr, "W%u: * %02u:%02u : ", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute);
     } else {
@@ -107,10 +106,7 @@ String clWecken::getTimeString(void) {
 
     }
     
-    Ausgabe  = String(cStr);
-    Ausgabe += String(_WeekDay[(uint16_t)WeckZeit.Wochentag]);
-
-    return Ausgabe;
+    return String(cStr) + String(_WeekDay[(uint16_t)WeckZeit.Wochentag]);
 }
 
 bool clWecken::stelleWeckzeit(stWeckZeit *_Weckzeit) {
@@ -250,7 +246,7 @@ bool clWecken::WeckzeitAkivieren(clIn *_Taster) {
 			}
 			break;
 		case 10:
-			if ((millis() - u32AktuelleZeit) >= 3000) {
+			if (millis() > (u32AktuelleZeit + 3000)) {
 				if (_Taster->Status()) {
 					if (pclWecken[0]->bAktive && pclWecken[1]->bAktive) {
 						u16Count = 3;
@@ -317,6 +313,9 @@ bool clWecken::WeckzeitAkivieren(clIn *_Taster) {
 	return bResult;
 }
 
+// ---------------------------------------------------------------------------------------------------
+// Püfen ob Weckfunktion getstartet werden muss
+// ---------------------------------------------------------------------------------------------------
 void clWecken::Check(void) {
     static uint16_t u16sCount = 0;
      
