@@ -7,7 +7,7 @@
 
 #pragma once
 
-#define MAX_WECKER    2
+#define MAX_WECKER    3
 
 enum class WOCHEN_TAG: uint16_t {
     SO = 0,
@@ -22,6 +22,19 @@ enum class WOCHEN_TAG: uint16_t {
     WE = 9          // Wochenende (SA und SO)
 };
 
+enum class TAGE_BIN: uint16_t {
+    SO = 0x0001,
+    MO = 0x0002,
+    DI = 0x0004,
+    MI = 0x0008,
+    DO = 0x0010,
+    FR = 0x0020,
+    SA = 0x0040,
+    ALL = 0x007F,
+    AT = 0x003E,
+    WE = 0x0041 
+};
+
 struct stWeckZeit {
     WOCHEN_TAG  Wochentag;          
     uint16_t    u16Stunde;
@@ -31,15 +44,15 @@ struct stWeckZeit {
 class clWecken {
     public:
         ~clWecken(){}
-        clWecken (struct tm *_AktuelleZeit, clOut *_Summer, clIn *_Taster);
+        clWecken (tm *_AktuelleZeit, clOut *_Summer, clIn *_Taster);
 
         String getWeckStunde(void);
         String getWeckMinute(void); 
         String getTimeString(void);
 
-        bool stelleWeckzeit(stWeckZeit *_Weckzeit);
         bool getStatus(void);
-
+        bool stelleWeckzeit(void);
+       
         void setTime(stWeckZeit *_WeckZeit);
         void Start(void); 
         void Stop(void);
@@ -56,6 +69,8 @@ class clWecken {
         
         stWeckZeit WeckZeit;
         
+        TAGE_BIN   Wecktage;
+        
         struct tm *AktuelleZeit;  
 
         uint32_t u32Delay;
@@ -64,6 +79,7 @@ class clWecken {
         uint16_t u16StatusWeckzeit;
         uint16_t u16StatusWzAnzeige;
         uint16_t u16InkZeit;
+        uint16_t u16InkTage;
         uint16_t u16Count; 
         uint16_t u16WeckerNr;
 
@@ -75,6 +91,7 @@ class clWecken {
         bool bAktive;
         bool bStelleStunden;
         bool bStelleMinuten;
+        bool bStelleTage;
         const char *_WeekDay[10] = {"So ", "Mo ", "Di ", "Mi ", "Do ", "Fr ", "Sa ", "So - Sa", "Mo - Fr", "Sa, So"};
                      
         bool inkZeit (uint16_t *u16Zeit, uint16_t u16Grenze);
