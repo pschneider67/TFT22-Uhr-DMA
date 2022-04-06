@@ -77,40 +77,47 @@ WiFiClient client;
 clOut led;
 clOut buzzer;
 
-stInput ParamSw01; 	// Eingangsparameter
-stInput ParamSw02;
-clIn sw01; 			// Eingangsklasse
+// Taster SW 01
+stInput ParamSw01 = {SW_01, CHANGE, 20, 2000, irqSw01, POLARITY::POS};
+clIn sw01; 			
+
+// Taster SW 02
+stInput ParamSw02 = {SW_02, CHANGE, 20, 2000, irqSw02, POLARITY::POS};
 clIn sw02;
 
-char cVersion[] = {"01.00"};
+char cVersion[] = {"01.10"};
 char cDatum[]   = __DATE__;
 
 // Weckzeit 1
 stWeckZeit WeckZeit1 = {WOCHEN_TAG::AT, 5, 55};
 clWecken Wecker1(&timeinfo, &buzzer, &sw02);
 char Wecker1_Stunden[3] = {"00"};
-char Wecker1_Minuten[3] = {"00"}; 
+char Wecker1_Minuten[3] = {"00"};
+char Wecker1_Tage[20] = {"Mo - Fr"};  
 char Wecker1_Aktiv[2] = {" "};
 
 // Weckzeit 2
-stWeckZeit WeckZeit2 = {WOCHEN_TAG::WE, 21, 00};
+stWeckZeit WeckZeit2 = {WOCHEN_TAG::WE, 9, 00};
 clWecken Wecker2(&timeinfo, &buzzer, &sw02);
 char Wecker2_Stunden[3] = {"00"};
 char Wecker2_Minuten[3] = {"00"};
+char Wecker2_Tage[20] = {"Sa, So"};  
 char Wecker2_Aktiv[2] = {" "};
 
 bool shouldSaveConfig = false;
 
-// Menueverwaltung
-clMenue Menue(&sw01, zeigeStatusZeile);
-menue_t MenueEintrag [6] = { 
-	{runHauptMenue, String("Uhrzeit / Weckzeiten"), false},
-	{runWeckzeit1,  String("Weckzeit 1 stellen"),   false},
-	{runWeckzeit2,  String("Weckzeit 2 stellen"),   false},
-	{runStatus,     String("Statusanzeige"),        false},
-	{runWetter,     String("Wetteranzeige"),        false},
-	{runDeleteFile, String("Delete Konfigiration"),  true}
+menue_t hmMenue[6] = { 
+//   Funktion               Menütext                 letzter Eintrag
+	{runHauptMenue, String("Uhrzeit / Weckzeiten"),  false},
+	{runWeckzeit1,  String("Weckzeit 1 einstellen"), false},
+	{runWeckzeit2,  String("Weckzeit 2 einstellen"), false},
+	{runStatus,     String("Statusanzeige"),         false},
+	{runWetter,     String("Wetteranzeige"),         false},
+	{runDeleteFile, String("Delete Konfigiration"),   true}
 };
+
+// Menueverwaltung
+clMenue Menue(&sw01, hmMenue, zeigeStatusZeile);
 
 int pwmValue;
 
@@ -135,21 +142,20 @@ void setup() {
 	
 	displayHelligkeit();
 	zeigeRahmen();
-	zeigeBeschriftung();
-
+	
 	configTime(MY_TZ, MY_NTP_SERVER);
 
 	initFs();	// lese Konfig Daten für die Wecker
 	
 	Wecker1.setTime(&WeckZeit1);
 	Wecker2.setTime(&WeckZeit2);
-	
+		
 	Serial.println();
 	Serial.println("--------------------------------------");
 	Serial.println("- TFT2.2 Uhr SPI                     -");
 	Serial.println("--------------------------------------");
-	Serial.println(cVersion);
-	Serial.println(cDatum);
+	Serial.println(String("Version    - ") + String(cVersion));
+	Serial.println(String("Builddatum - ") + String(cDatum));
 
 	initIrq();
 }
@@ -158,6 +164,9 @@ void setup() {
 // Loop - Endlosschleife
 // ---------------------------------------------------------------------------------------------------
 void loop(void) {
+	sw01.runStatus();
+	sw02.runStatus();
+
 	led.SwPort(sw01.Status());				// LED an wenn Taste 1 betätigt
 
 	time(&actualTime);					 	// aktuelle Zeit lesen
@@ -170,7 +179,7 @@ void loop(void) {
 	displayHelligkeit();
 	zeigeWeckzeiten();
 	
-	Menue.Verwaltung(MenueEintrag);			// Abarbeiten der Menüs
+	Menue.Verwaltung();				        // Abarbeiten der Menüs
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -206,8 +215,14 @@ bool runHauptMenue(void) {
 
 bool runWeckzeit1(void) {
 	static uint16_t u16Status = 0;
-	
+	static uint16_t u16StatusOld = 1;
+		
 	bool bResult = false;
+
+	if (u16Status != u16StatusOld) {
+		Serial.println(TraceTime() + String("runWeckzeit1 - ") + String(u16Status));
+		u16StatusOld = u16Status;
+	}
 
 	switch (u16Status) {
 		case 0:		// warte bis Tatse losgelassen wurde
@@ -222,7 +237,7 @@ bool runWeckzeit1(void) {
 			}
 			break;
 		case 10:	
-			if (Wecker1.stelleWeckzeit(&WeckZeit1)) {
+			if (Wecker1.stelleWeckzeit()) {
 				Wecker1.getWeckStunde().toCharArray(Wecker1_Stunden, 3);   
 				Wecker1.getWeckMinute().toCharArray(Wecker1_Minuten, 3);   
 				saveWeckerConfig();
@@ -239,8 +254,14 @@ bool runWeckzeit1(void) {
 
 bool runWeckzeit2(void) {
 	static uint16_t u16Status = 0;
+	static uint16_t u16StatusOld = 1;
 	
 	bool bResult = false;
+
+	if (u16Status != u16StatusOld) {
+		Serial.println(TraceTime() + String("runWeckzeit2 - ") + String(u16Status));
+		u16StatusOld = u16Status;
+	}
 
 	switch (u16Status) {
 		case 0:		// warte bis Tatse losgelassen wurde
@@ -255,7 +276,7 @@ bool runWeckzeit2(void) {
 			}
 			break;
 		case 10:	
-			if (Wecker2.stelleWeckzeit(&WeckZeit2)) {
+			if (Wecker2.stelleWeckzeit()) {
 				Wecker2.getWeckStunde().toCharArray(Wecker2_Stunden, 3);   
 				Wecker2.getWeckMinute().toCharArray(Wecker2_Minuten, 3);   
 				saveWeckerConfig();
@@ -450,6 +471,7 @@ void zeigeUhrzeit(struct tm actTimeinfo) {
 	switch (u16State)  	{
 		case 0: 	// Zeitanzeige initialisieren wenn die NTP Abfrage zum 1. mal komplett ist
 			tft.setFreeFont(NULL);
+			tft.setTextColor(TFT_YELLOW, TFT_BLACK);
 			tft.drawCentreString("Warte auf Zeitserver", tftWidth / 2, 90, 1);
 			u16State = 5;
 			break;
@@ -518,6 +540,9 @@ IRAM_ATTR void irqTimer0(void) {
 // init GPIO
 // -----------------------------------------------------------------------------------
 void initGpio(void) {
+	sw01.Init(ParamSw01);
+	sw02.Init(ParamSw02);
+
 	// Summer
 	buzzer.Init(BUZZER, POLARITY::NEG); // GIPO BUZZER low active
 	buzzer.On();
@@ -526,27 +551,7 @@ void initGpio(void) {
 
 	// LED
 	led.Init(LED, POLARITY::POS); 		// GPIO LED high active
-
-	// Taster SW 01
-	ParamSw01.cb = irqSw01;				// Interrupt Service Routine
-	ParamSw01.entprellzeit = 30;		// Entprellzeit [ms]
-	ParamSw01.irq = false;				// Interrupt verwenden wenn hier true
-	ParamSw01.mode = CHANGE;			// Interrupt bei Signalwechsel
-	ParamSw01.pin = SW_01;				// GPIO Nummer
-	ParamSw01.polarity = POLARITY::POS; // Polarität
-	ParamSw01.status = false;			// Status des Eingangs, Wert ist hier egal
-	sw01.Init(&ParamSw01);				// Initialisiere den Eingang
-
-	// Taster SW 02
-	ParamSw02.cb = irqSw02;				// Interrupt Service Routine
-	ParamSw02.entprellzeit = 30;		// Entprellzeit [ms]
-	ParamSw02.irq = false;				// Interrupt verwenden wenn hier true
-	ParamSw02.mode = RISING;			// Interrupt bei Tastendruck (steigente Flanke)
-	ParamSw02.pin = SW_02;				// GPIO Nummer
-	ParamSw02.polarity = POLARITY::POS; // Plarität
-	ParamSw02.status = false;			// Status des Eingangs, Wert ist hier egal
-	sw02.Init(&ParamSw02);				// Initialisiere den Eingang
-
+	
 	// TFT Hintergrundbeleuchtung init und einschalten
 	analogWriteRange(1024);
 	analogWriteFreq(5000);
@@ -624,10 +629,12 @@ void initFs(void) {
           			Serial.println("\nparsed json");
           			strcpy(Wecker1_Stunden, json["Wecker1_Stunden"]);
           			strcpy(Wecker1_Minuten, json["Wecker1_Minuten"]);
+					strcpy(Wecker1_Tage, json["Wecker1_Tage"]);
 					strcpy(Wecker1_Aktiv, json["Wecker1_Aktiv"]);  
 
           			strcpy(Wecker2_Stunden, json["Wecker2_Stunden"]);
           			strcpy(Wecker2_Minuten, json["Wecker2_Minuten"]);
+					strcpy(Wecker2_Tage, json["Wecker2_Tage"]);
 					strcpy(Wecker2_Aktiv, json["Wecker2_Aktiv"]);  
 					
 					String Data = (String)Wecker1_Stunden;
@@ -649,6 +656,7 @@ void initFs(void) {
 						Serial.println(".. Wecker 2 ist aktiv");
 						Wecker2.Start();
 					}
+					
           		} else {
           			Serial.println(".. failed to load json config");
         		}
@@ -675,7 +683,8 @@ void saveWeckerConfig(void) {
 	DynamicJsonDocument json(1024);
 	json["Wecker1_Stunden"] = Wecker1_Stunden;
    	json["Wecker1_Minuten"] = Wecker1_Minuten;
-	
+	json["Wecker1_Tage"] = Wecker1_Tage;
+
 	if (Wecker1.getStatus()) {
 		json["Wecker1_Aktiv"] = "*";  
 	} else {
@@ -684,6 +693,7 @@ void saveWeckerConfig(void) {
 
     json["Wecker2_Stunden"] = Wecker2_Stunden;
    	json["Wecker2_Minuten"] = Wecker2_Minuten;
+	json["Wecker2_Tage"] = Wecker2_Tage;
 	
 	if (Wecker2.getStatus()) {
 		json["Wecker2_Aktiv"] = "*";  
@@ -862,10 +872,10 @@ String WetterDatenAusJson(String WetterDaten) {
 }
 
 // -----------------------------------------------------------------------------------
-// callback Schalter 1 und 2
+// callback Schalter 1 und 2 - nur als Beispiel
 // -----------------------------------------------------------------------------------
 ICACHE_RAM_ATTR void irqSw01(void) {
-	if (ParamSw01.status) {
+	if (sw01.Status()) {
 		led.On();
 		buzzer.On();
 	} else {

@@ -11,12 +11,12 @@
 uint16_t clWecken::sWeckerNr = 0;
 clWecken *clWecken::pclWecken[MAX_WECKER];
 
-clWecken::clWecken (struct tm *_AktuelleZeit, clOut *_Summer, clIn *_Taster) {
+clWecken::clWecken (tm *_AktuelleZeit, clOut *_Summer, clIn *_Taster) {
     u16WeckerNr = sWeckerNr++;          // zähle die Instanzen
 
     if (u16WeckerNr < MAX_WECKER) {     // speichere einen Pointer auf diese Instanz
         pclWecken[u16WeckerNr] = this;
-    }
+    } 
 
     Summer = _Summer;
     Taster = _Taster;
@@ -27,11 +27,13 @@ clWecken::clWecken (struct tm *_AktuelleZeit, clOut *_Summer, clIn *_Taster) {
     bRun = false;
     bStelleStunden = false;
     bStelleMinuten = false;
+    bStelleTage = false;
 
     u16Status = 0;
     u16StatusWeckzeit = 0;
     u16StatusWzAnzeige = 0;
     u16InkZeit = 0;
+    u16InkTage = 0;
     u16Count = 0; 
 }
 
@@ -50,12 +52,12 @@ String clWecken::getWeckMinute(void) {
 }
 
 String clWecken::getTimeString(void) {
-    char cStr[25];
+    char cStr[40];
    
     if (bAktive) {
-        sprintf(cStr, "W%u: * %02u:%02u : ", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute);
+        sprintf(cStr, "W%u: * %02u:%02u : %s", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute, _WeekDay[(uint16_t)WeckZeit.Wochentag]);
     } else {
-        sprintf(cStr, "W%u:   %02u:%02u : ", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute);
+        sprintf(cStr, "W%u:   %02u:%02u : %s", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute, _WeekDay[(uint16_t)WeckZeit.Wochentag]);
     }
 
     switch (u16StatusWzAnzeige) { 
@@ -66,13 +68,16 @@ String clWecken::getTimeString(void) {
             } else if (bStelleMinuten) {
                 u32Timer1 = millis();
                 u16StatusWzAnzeige = 30;
+            } else if (bStelleTage) {
+                u32Timer1 = millis();
+                u16StatusWzAnzeige = 50;
             }
             break;
         case 10:    // Anzeige Stunden aus
             if (bAktive) {
-                sprintf(cStr, "W%u: *   :%02u : ", u16WeckerNr + 1, WeckZeit.u16Minute);
+                sprintf(cStr, "W%u: *   :%02u : %s", u16WeckerNr + 1, WeckZeit.u16Minute, _WeekDay[(uint16_t)WeckZeit.Wochentag]);
             } else {
-                sprintf(cStr, "W%u:     :%02u : ", u16WeckerNr + 1, WeckZeit.u16Minute);
+                sprintf(cStr, "W%u:     :%02u : %s", u16WeckerNr + 1, WeckZeit.u16Minute, _WeekDay[(uint16_t)WeckZeit.Wochentag]);
             }
             if (millis() > (u32Timer1 + 300)) {
                 u32Timer1 = millis();
@@ -86,9 +91,9 @@ String clWecken::getTimeString(void) {
             break;
         case 30:    // Anzeige Minuten aus
             if (bAktive) {
-                sprintf(cStr, "W%u: * %02u:   : ", u16WeckerNr + 1, WeckZeit.u16Stunde);
+                sprintf(cStr, "W%u: * %02u:   : %s", u16WeckerNr + 1, WeckZeit.u16Stunde, _WeekDay[(uint16_t)WeckZeit.Wochentag]);
             } else {
-                sprintf(cStr, "W%u:   %02u:   : ", u16WeckerNr + 1, WeckZeit.u16Stunde);
+                sprintf(cStr, "W%u:   %02u:   : %s", u16WeckerNr + 1, WeckZeit.u16Stunde, _WeekDay[(uint16_t)WeckZeit.Wochentag]);
             }
             if (millis() > (u32Timer1 + 300)) {
                 u32Timer1 = millis();
@@ -100,37 +105,48 @@ String clWecken::getTimeString(void) {
                 u16StatusWzAnzeige = 0;
             }
             break;
+        case 50:    // Wochentage aus
+            if (bAktive) {
+                sprintf(cStr, "W%u: * %02u:%02u :        ", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute);
+            } else {
+                sprintf(cStr, "W%u:   %02u:%02u :        ", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute);
+            }
+            if (millis() > (u32Timer1 + 300)) {
+                u32Timer1 = millis();
+                u16StatusWzAnzeige = 60;
+            }
+            break;
+        case 60:
+            if (millis() > (u32Timer1 + 300)) {
+                u16StatusWzAnzeige = 0;
+            }
+            break;
         default:
             u16StatusWzAnzeige = 0;
             break;
-
     }
-    
-    return String(cStr) + String(_WeekDay[(uint16_t)WeckZeit.Wochentag]);
+
+    return String(cStr);
 }
 
-bool clWecken::stelleWeckzeit(stWeckZeit *_Weckzeit) {
+bool clWecken::stelleWeckzeit(void) {
     bool bResult = false;
 
     switch (u16StatusWeckzeit) {
         case 0:     // warte auf Testendruck
             bStelleStunden = false;
             bStelleMinuten = false;
-            if (Taster->Status()) {
-                u32Timer2 = millis();
+            bStelleTage = false;
+            if (Taster->StatusLong()) {
                 u16StatusWeckzeit = 10;
             }
             break;
-        case 10:    // nach 2s Funktion beginnen
-            if (millis() > (u32Timer2 + 2000)) {
-                bStelleStunden = true;    
-                u16StatusWeckzeit = 15;
-            } else if (!Taster->Status()) {
-                u16StatusWeckzeit = 0;
-            }
+        case 10:    // Funktion beginnen
+            bStelleStunden = true;    
+            u16StatusWeckzeit = 15;
             break;              
         case 15:
-            if (!Taster->Status()) {
+            if (!Taster->StatusLong()) {
                 u32Timer2 = millis();
                 u16StatusWeckzeit = 20;
             }   
@@ -146,6 +162,13 @@ bool clWecken::stelleWeckzeit(stWeckZeit *_Weckzeit) {
             if (inkZeit(&WeckZeit.u16Minute, 60)) {
                 bStelleStunden = false;
                 bStelleMinuten = false;
+                bStelleTage = true;
+                u16StatusWeckzeit = 30;
+            }
+            break;
+        case 30:
+            if (inkZeit((uint16_t*)&WeckZeit.Wochentag, 10)) {
+                bStelleTage = false;
                 bResult = true;
                 u16StatusWeckzeit = 0;
             }
@@ -232,7 +255,6 @@ bool clWecken::inkZeit (uint16_t *_u16Zeit, uint16_t _u16Grenze) {
 bool clWecken::WeckzeitAkivieren(clIn *_Taster) {
    	static uint16_t u16Status = 0;
 	static uint16_t u16Count = 0;
-	static uint32_t u32AktuelleZeit = 0;
 	static uint32_t u32AktiveZeit = 0;
 
 	bool bResult = false;
@@ -240,27 +262,24 @@ bool clWecken::WeckzeitAkivieren(clIn *_Taster) {
 	switch(u16Status) {
 		case 0:
 			bResult = true;
-			if (_Taster->Status()) {
-				u32AktuelleZeit = millis();
+			if (_Taster->StatusLong()) {
 				u16Status = 10;
 			}
 			break;
 		case 10:
-			if (millis() > (u32AktuelleZeit + 3000)) {
-				if (_Taster->Status()) {
-					if (pclWecken[0]->bAktive && pclWecken[1]->bAktive) {
-						u16Count = 3;
-					} else if (pclWecken[0]->bAktive) {
-						u16Count = 1;
-					} else if (pclWecken[1]->bAktive) {
-						u16Count = 2;
-					} else {
-						u16Count = 0;
-					}
-					u32AktiveZeit = millis();
-					u16Status = 20;
-				}
-			} else if (!_Taster->Status()) {
+            if (_Taster->StatusLong()) {
+                if (pclWecken[0]->bAktive && pclWecken[1]->bAktive) {
+                    u16Count = 3;
+                } else if (pclWecken[0]->bAktive) {
+                    u16Count = 1;
+                } else if (pclWecken[1]->bAktive) {
+                    u16Count = 2;
+                } else {
+                    u16Count = 0;
+                }
+                u32AktiveZeit = millis();
+                u16Status = 20;
+            } else {
 				u16Status = 0;
 			}
 			break;
@@ -291,7 +310,6 @@ bool clWecken::WeckzeitAkivieren(clIn *_Taster) {
 						u16Count = 0; 
 						break;				
 				}
-				u32AktuelleZeit = millis();
 				u16Status = 30;
 			}
 
@@ -302,7 +320,7 @@ bool clWecken::WeckzeitAkivieren(clIn *_Taster) {
 			break;
 		case 30:
 			if (!_Taster->Status()) {
-				u32AktiveZeit = millis();
+                u32AktiveZeit = millis();
 				u16Status = 20;
 			}
 			break;
@@ -320,6 +338,10 @@ void clWecken::Check(void) {
     static uint16_t u16sCount = 0;
      
     for (u16sCount = 0; u16sCount < sWeckerNr; u16sCount++) {
+        if (u16sCount >= MAX_WECKER) {
+            break;
+        }
+
         pclWecken[u16sCount]->bTagOk = false;
 
         // Prüfe ob der Wecker aktiv ist

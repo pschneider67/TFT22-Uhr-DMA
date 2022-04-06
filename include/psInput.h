@@ -10,72 +10,44 @@
 struct stInput {
 	uint16_t	pin;				// GPIO Nummer
 	uint16_t	mode;				// Interrupt wird ausglöst bei Flanke oder Flankenwechsel
-	uint16_t	entprellzeit;		// Entprellzeit, bei verwendung des Interrupts nicht verwendet
+	uint16_t	entprellzeit;		// Entprellzeit, bei Verwendung des Interrupts nicht verwendet
+	uint16_t	switchLongTime;		// Zeit für Langer Tastendruck
 	void (*cb)(void);		   		// Interrupt Service Routine als call back
 	POLARITY	polarity;			// Polarität
 	bool		irq;				// true --> Es wird ein Interrupt benutzt
-	bool      	status;				// aktueller Status des Eingangs
 };
 
 class clIn {
 	public:
-		clIn(){}
+		clIn();
 		~clIn(){}
 
-		void Init(stInput *pParameter) {
-			if (pParameter == NULL) {
-				Serial.println("** --> input error");
-				return;
-			}
-			pParam = pParameter;
-
-			pinMode(pParam->pin, INPUT);
-
-			if (pParam->irq) {
-				noInterrupts();         		// Interrupts sperren
-				if (pParam->polarity == POLARITY::POS) {
-					attachInterrupt(digitalPinToInterrupt(pParam->pin), pParam->cb, pParam->mode);
-				} else {
-					attachInterrupt(digitalPinToInterrupt(pParam->pin), pParam->cb, pParam->mode);
-				}
-				Serial.println("** install irq for input " + (String)pParam->pin);
-				interrupts();           		// Interrups freigeben
-			}
+		void Init(stInput _Param);
+		void runStatus(void);
+		
+		bool Status(void) {
+			return bShort;
 		}
 
-		bool Status(void) {
-			if (pParam == NULL) {
-				Serial.println("** --> input error");
-			} else {
-				if (pParam->irq) {			  	// Wenn Interrupt benutzt wird, dann ohne Entprellzeit
-					SetStatus();				// Entprellung nur per Hardware
-				} else {						// Mit Entprellzeit
-					if (AktuelleZeit == 0) {	// 1. Durchlauf
-						AktuelleZeit = millis();
-						SetStatus();
-					} else if ((millis() - AktuelleZeit) >= pParam->entprellzeit) {
-						AktuelleZeit = 0;
-						SetStatus();
-					}
-				}
-			}
-			return pParam->status;
+		bool StatusLong(void) {
+			return bLong;
 		}
 
 	private:
-		void SetStatus(void) {
-			if (pParam == NULL) {
-				Serial.println("** --> input error");
-				return;
-			}
+		void SetStatus(void);
+		
+		stInput Param;
+		
+		uint32_t u32Timer;
+	 	
+		uint16_t u16Status;
+		uint16_t u16StatusOld;
 
-			if (pParam->polarity == POLARITY::POS) {
-				pParam->status = digitalRead(pParam->pin);
-			} else {
-				pParam->status = ~digitalRead(pParam->pin);
-			}
-		}
-
-		stInput *pParam = NULL;
-		unsigned long AktuelleZeit = 0;
+		uint16_t u16InCount;
+		static uint16_t u16InCountMax;
+				
+		bool bStatus;	// aktueller Status des Eingangs		
+		bool bShort;
+		bool bLong;
 };
+

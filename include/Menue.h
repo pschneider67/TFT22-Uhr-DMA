@@ -6,73 +6,69 @@
  */
 
 #pragma once
-
 typedef struct {
-    bool (*_cb)(void);
-    String _Name;
-    bool bLastItem;
+    bool (*_cbMenue)(void);     // Menüfunktion
+    String _MenueName;          // Menüname
+    bool _bLastItem;            // Ende der Liste
 } menue_t;
 
 class clMenue {
     public:
         ~clMenue(){}
-        clMenue (clIn *_Taster, void (*_cbAnzeige)(String)) {
-            Taster = _Taster;
-            u16Status = 0;
-            u16MenueCount = 0;
+        clMenue (clIn *_MenueTaster, menue_t *_MenueArray, void (*_cbAnzeige)(String)) {
+            MenueTaster = _MenueTaster;
+            MenueArray = _MenueArray;
             cbAnzeige = _cbAnzeige;
+            u16MenueCount = 0;
         }
 
-        void Verwaltung(menue_t *_MenueEintrag) {
-            bFertig = _MenueEintrag[u16MenueCount]._cb();
+        void Verwaltung(void) {
+            static uint16_t u16Status = 0;
+
+            // Menüfunktion aufrufen
+            // Wird "true" zurückgegeben, dann wurde die Funktion komplett abgearbeitet
+            // oder noch nicht getartet
+            bMenueFertig = MenueArray[u16MenueCount]._cbMenue();
 
             switch (u16Status) {
                 case 0:     // init
-                    u16MenueCount = 0;
-                    cbAnzeige(_MenueEintrag[u16MenueCount]._Name);
-                    if (!Taster->Status()) {
+                    if (!MenueTaster->Status()) { 
+                        u16MenueCount = 0;                                  // aktuell aktives Menü
+                        cbAnzeige(MenueArray[u16MenueCount]._MenueName);    // aktuellen Menüname anzeigen
                         u16Status = 10;
                     }
                     break;
-                case 10:    // Warten bis Taster gedrückt wird
-                    if (Taster->Status()) {
-                        u32Timer = millis();
+                case 10:    // Zum Starten muss der Taster 2s lang gedrückt werden
+                    if (MenueTaster->StatusLong()) {
                         u16Status = 20;
-                    }
+                    } 
                     break;
-                case 20:    // Zum Starten muss der Taster 2s lang gedrückt werden
-                    if (millis() > (u32Timer + 2000)) {
-                        u16Status = 30;
-                    } else if (!Taster->Status()) {
-                        u16Status = 10;
-                    }
-                    break;
-                case 30:    // Menü um 1 weiterschalten
-                    if (bFertig) {
-                        if (_MenueEintrag[u16MenueCount].bLastItem) {
+                case 20:    // Menü um 1 Menüpunkt weiterschalten
+                    if (bMenueFertig) {
+                        if (MenueArray[u16MenueCount]._bLastItem) {
                             u16MenueCount = 0;
                         } else {
                             u16MenueCount++;
                         }
-                        cbAnzeige(_MenueEintrag[u16MenueCount]._Name);   
+                        cbAnzeige(MenueArray[u16MenueCount]._MenueName);    // neuen Menüpunkt anzeigen
+                        u16Status = 30;
+                    } 
+                    break;
+                case 30:    // Warten bis Tatster nicht mehr gedrückt wird
+                    if (!MenueTaster->Status()) {
+                        u32Timer = millis();
                         u16Status = 40;
                     }
                     break;
-                case 40:    // Warten bis Tatster nicht mehr gedrückt wird
-                    if (!Taster->Status()) {
-                        u32Timer = millis();
-                        u16Status = 50;
-                    }
-                    break;
-                case 50:    // Warte auf den nächste Tastendruck oder Funktion abrechen
-                    if (Taster->Status()) { 
-                        u16Status = 30;
+                case 40:    // Warte auf den nächste Tastendruck oder Funktion abrechen
+                    if (MenueTaster->Status()) { 
+                        u16Status = 20;
                     } else if (millis() > (u32Timer + 3000)) {
-                        u16Status = 60;
-                    }        
+                        u16Status = 50;
+                    } 
                     break;
-                case 60:
-                    if (bFertig) {
+                case 50:
+                    if (bMenueFertig) {
                         u16Status = 0;
                     }
                     break;
@@ -83,11 +79,10 @@ class clMenue {
         } 
 
     private:
-        clIn *Taster;
-        uint16_t u16Status;
-        uint16_t u16MenueCount;
         void (*cbAnzeige)(String);	
+        clIn *MenueTaster;
+        uint16_t u16MenueCount;
         uint32_t u32Timer;
-        bool bFertig;
-
-};        
+        menue_t *MenueArray;
+        bool bMenueFertig;
+    };        

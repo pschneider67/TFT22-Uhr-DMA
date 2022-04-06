@@ -69,7 +69,7 @@ class clOut {
 					FlashStatus = 10;
 					break;
 				case 10:
-					if ((millis() - AktuelleZeit) >= flashTime) {
+					if (millis() > (AktuelleZeit + flashTime)) {
 						Off();
 						FlashStatus = 20;
 					}
