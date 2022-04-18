@@ -23,7 +23,7 @@ class clIn {
 		~clIn(){}
 
 		void Init(stInput _Param);
-		void runStatus(void);
+		void runState(void);
 		
 		bool Status(void) {
 			return bShort;

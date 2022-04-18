@@ -103,15 +103,17 @@ Beschreibung        : Bedeckt
 #define ROTATION_270  3
 
 // Prototypen
-void zeigeBeschriftung(void);
-void zeigeVersion(void);
-void zeigeRahmen(void);
-void zeigeDatumUhr(struct tm);
-void zeigeUhrzeit(struct tm);
-void zeigeWeckzeiten(void);
-void zeigeStatusZeile(String strData); 
-bool WeckzeitAkivieren(clIn *);
-void displayHelligkeit(void);
+void showLabel(void);
+void showVersion(void);
+void showFrame(void);
+void showDateAndTime(struct tm);
+void showTime(struct tm);
+void showWakeUpTime(void);
+void showState(String strData); 
+void showWeatherIcon(const unsigned short*);
+void showTemperature(float);
+bool enableWakeUpTime(clIn *);
+void tftBrigthnees(void);
 void initGpio(void);
 void initDisplay(void);
 void initNetwork(void);
@@ -121,17 +123,16 @@ void initIrq(void);
 void initFs(void);
 void saveConfigCallback(void);
 void saveWeckerConfig(void);
-void zeigeWetter(void);
-GBL_STATUS getWeather(void);
-GBL_STATUS getWeatherDataState (void);
-void getWeatherData(void);
-String WetterDatenAusJson(String WetterDaten);
+void showWeatherString(void);
 
-bool runHauptMenue(void); 
-bool runWeckzeit1(void);
-bool runWeckzeit2(void);
-bool runStatus(void);
-bool runWetter(void);  
+String getActualWeather(void);
+String getJsonWeatherString(String WetterDaten);
+
+bool runMainMenue(void);
+bool changeWakeUpTime(uint16_t);  
+bool runWakeUpTime_1(void);
+bool runWakeUpTime_2(void);
+bool runState(void);
 bool runDeleteFile(void);
 
 void irqTimer0(void);

@@ -11,7 +11,7 @@
 uint16_t clWecken::sWeckerNr = 0;
 clWecken *clWecken::pclWecken[MAX_WECKER];
 
-clWecken::clWecken (tm *_AktuelleZeit, clOut *_Summer, clIn *_Taster) {
+clWecken::clWecken (tm *_AktuelleZeit, clOut *_Summer, clIn *_Taster, stWeckZeit *_stWz) {
     u16WeckerNr = sWeckerNr++;          // zähle die Instanzen
 
     if (u16WeckerNr < MAX_WECKER) {     // speichere einen Pointer auf diese Instanz
@@ -35,6 +35,8 @@ clWecken::clWecken (tm *_AktuelleZeit, clOut *_Summer, clIn *_Taster) {
     u16InkZeit = 0;
     u16InkTage = 0;
     u16Count = 0; 
+
+    setTime(_stWz);
 }
 
 void clWecken::setTime(stWeckZeit *_WeckZeit) {
@@ -49,6 +51,12 @@ String clWecken::getWeckStunde(void) {
 
 String clWecken::getWeckMinute(void) {
     return String(WeckZeit.u16Minute);
+}
+
+String clWecken::getWeckTage(void) {
+    uint16_t WeckTage = (uint16_t)WeckZeit.Wochentag;
+
+    return String(WeckTage);
 }
 
 String clWecken::getTimeString(void) {
@@ -252,7 +260,7 @@ bool clWecken::inkZeit (uint16_t *_u16Zeit, uint16_t _u16Grenze) {
 //       3             1               1
 //       4             0               0
 // ---------------------------------------------------------------------------------------------------
-bool clWecken::WeckzeitAkivieren(clIn *_Taster) {
+bool clWecken::enableWakeUpTime(clIn *_Taster) {
    	static uint16_t u16Status = 0;
 	static uint16_t u16Count = 0;
 	static uint32_t u32AktiveZeit = 0;

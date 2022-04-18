@@ -1,10 +1,10 @@
 // -----------------------------------------------------------------------------------
 // Autor : Peter Schneider
-// Datum : 23.01.2021 - Wechsel auf VSCode - PlatformIO
+// Datum : 23.01.2021 - change to VSCode and PlatformIO
 //
-// D1_mini mit TFT 2.2", 320 x 240, SPI
+// D1_mini with TFT 2.2", 320 x 240, SPI
 // -----------------------------------------------------------------------------------
-// Pinbelegung
+// pinning
 // -----------------------------------------------------------------------------------
 // VCC        - 3V3
 // GND        - GND
@@ -13,14 +13,17 @@
 // D/C        -  D4   - GPIO-02
 // SDI / MOSI -  D7   - GPIO-13
 // SCK        -  D5   - GPIO-14
-// LED        -  D3   - GPIO-00 Hintergrundbeleuchtung an PWM
-// SDO / MISO -  D6   - GPIO-12 Achtung Doppelbelegung mit Taster 1
+// LED        -  D3   - GPIO-00 TFT backligth with PWM
+// SDO / MISO -  D6   - GPIO-12 there is a seccond wireing with switch 1
 // -----------------------------------------------------------------------------------
-// LDR        -  A0   - ADC0    TFT Hintergrudbeleuchtung
+// LDR        -  A0   - ADC0    measure brigthness to change TFT backligth 
 // Buzzer     -  D0	  - GPIO-16
-// Taster 1   -  D6	  - GPIO-12
-// Taster 2   -  D8   - GPIO-15
+// Switch 1   -  D6	  - GPIO-12
+// Switch 2   -  D8   - GPIO-15
 // LED        -  D2   - GPIO-04
+// -----------------------------------------------------------------------------------
+// to convert fonts to *.h : http://oleddisplay.squix.ch/#/home
+// to convert images to *.h : http://rinkydinkelectronics.com/t_imageconverter565.php?msclkid=b9c2d4cdbd8811ec8ed10cdb25a780d0
 // -----------------------------------------------------------------------------------
 #include "Arduino.h"
 
@@ -28,24 +31,39 @@
 #include <time.h>
 #include <LittleFS.h>
 #include <SPI.h>
-#include <TFT_eSPI.h> 		// Hardware-specific library
+#include <TFT_eSPI.h> 		
 #include <TimeLib.h>
 #include <ArduinoJson.h>
 
+#include "font.h"
 #include "Free_Fonts.h"
 #include "TFT22-Uhr.h"
 
+// weather icons 64x64
+#include "icons/bild_01d.h"
+#include "icons/bild_01n.h"
+#include "icons/bild_02d.h"
+#include "icons/bild_02n.h"
+#include "icons/bild_03d.h"
+#include "icons/bild_04d.h"
+#include "icons/bild_09d.h"
+#include "icons/bild_10d.h"
+#include "icons/bild_10n.h"
+#include "icons/bild_11d.h"
+#include "icons/bild_13d.h"
+#include "icons/bild_50d.h"
+#include "icons/bild_44.h"
+
 // ---------------------------------------------------------------------------------------------------
-// in dieser Datei steht das define für API_KEY und CITY_KEY. Die Datei muss noch angelegt werden,
-// sie ist nicht Bestandteil des Repository
+// config.h include the definition of API_KEY and CITY_KEY
 // #define API_KEY "1234567890abcdefghijklmnopqrst..."
 // #define CITY_KEY "1234..."
 // ---------------------------------------------------------------------------------------------------
-#include "config.h"
+#include "config.h"   
 // ---------------------------------------------------------------------------------------------------
 
-#define MY_TZ "CET-1CEST,M3.5.0,M10.5.0/3"			// Zeitformat mit Sommerzeit / Winterzeit
-#define MY_NTP_SERVER "europe.pool.ntp.org" 		// verwendeter Zeitserver
+#define MY_TZ "CET-1CEST,M3.5.0,M10.5.0/3"			// timezone with summertime and wintertime 
+#define MY_NTP_SERVER "europe.pool.ntp.org" 		// used ntp timeserver
 
 time_t actualTime;
 struct tm timeinfo;
@@ -56,17 +74,18 @@ TFT_eSPI tft = TFT_eSPI();
 String ApiKey = API_KEY;
 String CityId = CITY_KEY; 
 const char Server[] = "api.openweathermap.org";
-StaticJsonDocument<2000> doc; 						 // JSON Dokument erstellen
+StaticJsonDocument<2000> doc; 						 // make JSON doc
+String strIcon;
 
 const char *WeekDay[7] = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr. ", "Sa. "};
 
-const uint16_t hSpace = 8;							 // Abstand
-const uint16_t yTop = 0;							 // Start oberer Bereich
-const uint16_t hTop = 40;							 // Höhe des oberen Bereiches
-const uint16_t yMiddle = hTop + hSpace;				 // Start mittlerer Bereich
-const uint16_t hMiddle = yMiddle + 95;				 // Höhe des ittleren Bereiches
-const uint16_t yBottom = yMiddle + hMiddle + hSpace; // Start des unteren Bereiches
-const uint16_t hBottom = 40;						 // Höhe des unteren Bereiches
+const uint16_t hSpace = 8;							 // space
+const uint16_t yTop = 0;							 // start upper area
+const uint16_t hTop = 40;							 // higth of upper area
+const uint16_t yMiddle = hTop + hSpace;				 // start middle area
+const uint16_t hMiddle = yMiddle + 95;				 // higth of middle area
+const uint16_t yBottom = yMiddle + hMiddle + hSpace; // start lower area
+const uint16_t hBottom = 40;						 // higth of lower area
 
 uint16_t tftWidth;
 uint16_t tftHeight;
@@ -77,150 +96,241 @@ WiFiClient client;
 clOut led;
 clOut buzzer;
 
-// Taster SW 01
-stInput ParamSw01 = {SW_01, CHANGE, 20, 2000, irqSw01, POLARITY::POS};
+// definition of switch 1
+stInput ParamSw01 = {SW_01, CHANGE, 40, 2000, irqSw01, POLARITY::POS};
 clIn sw01; 			
 
-// Taster SW 02
-stInput ParamSw02 = {SW_02, CHANGE, 20, 2000, irqSw02, POLARITY::POS};
+// definition of switch 2
+stInput ParamSw02 = {SW_02, CHANGE, 40, 2000, irqSw02, POLARITY::POS};
 clIn sw02;
 
-char cVersion[] = {"01.10"};
+char cVersion[] = {"02.00"};
 char cDatum[]   = __DATE__;
 
-// Weckzeit 1
-stWeckZeit WeckZeit1 = {WOCHEN_TAG::AT, 5, 55};
-clWecken Wecker1(&timeinfo, &buzzer, &sw02);
-char Wecker1_Stunden[3] = {"00"};
-char Wecker1_Minuten[3] = {"00"};
-char Wecker1_Tage[20] = {"Mo - Fr"};  
-char Wecker1_Aktiv[2] = {" "};
+// definition of wake up times
+stWeckZeit stWz[MAX_WECKER] = {
+ 	{WOCHEN_TAG::MO, 5, 55},
+	{WOCHEN_TAG::DI, 5, 55},
+};
 
-// Weckzeit 2
-stWeckZeit WeckZeit2 = {WOCHEN_TAG::WE, 9, 00};
-clWecken Wecker2(&timeinfo, &buzzer, &sw02);
-char Wecker2_Stunden[3] = {"00"};
-char Wecker2_Minuten[3] = {"00"};
-char Wecker2_Tage[20] = {"Sa, So"};  
-char Wecker2_Aktiv[2] = {" "};
+// definition of arlam clocks
+std::array<clWecken, MAX_WECKER> Wecker = {
+    clWecken(&timeinfo, &buzzer, &sw02, &stWz[0]),
+    clWecken(&timeinfo, &buzzer, &sw02, &stWz[1]),
+};
+
+typedef struct {
+	char strStunden[3];
+	char strMinuten[3];
+	char strTage[2];  
+	char strAktiv[2];
+} weck_daten_t;
+
+weck_daten_t WeckerDaten[MAX_WECKER] = {
+	{"00", "00", "0", " "},
+	{"00", "00", "0", " "}
+};
 
 bool shouldSaveConfig = false;
 
-menue_t hmMenue[6] = { 
-//   Funktion               Menütext                 letzter Eintrag
-	{runHauptMenue, String("Uhrzeit / Weckzeiten"),  false},
-	{runWeckzeit1,  String("Weckzeit 1 einstellen"), false},
-	{runWeckzeit2,  String("Weckzeit 2 einstellen"), false},
-	{runStatus,     String("Statusanzeige"),         false},
-	{runWetter,     String("Wetteranzeige"),         false},
-	{runDeleteFile, String("Delete Konfigiration"),   true}
+menue_t hmMenue[5] = { 
+//   function                 menue string             last item
+	{runMainMenue,    String("Uhrzeit / Weckzeiten"),  false},
+	{runWakeUpTime_1, String("Weckzeit 1 einstellen"), false},
+	{runWakeUpTime_2, String("Weckzeit 2 einstellen"), false},
+	{runState,        String("Statusanzeige"),         false},
+	{runDeleteFile,   String("Delete Konfigiration"),   true}
 };
 
-// Menueverwaltung
-clMenue Menue(&sw01, hmMenue, zeigeStatusZeile);
+// menue control
+clMenue HMenue(&sw01, hmMenue, showState);
 
 int pwmValue;
 
-// Daten vom JSON-Tree abrufen
+// define data from JSON-tree 
 char *cityData;
-float tempNow;
-float tempMin;
-float tempMax;
-float humidityNow;
-float pressureNow;
+float tempNow = 0.0;
+float tempMin = 0.0;
+float tempMax = 0.0;
+float humidityNow = 0.0;
+float pressureNow = 0.0;
 char *weatherNowData;
 
+bool bGetWeather = true;
+
 // ---------------------------------------------------------------------------------------------------
-// Setup
+// setup
 // ---------------------------------------------------------------------------------------------------
 void setup() {
 	Serial.begin(115200);
 
 	initDisplay();
+
 	initGpio();
-	initNetwork();
 	
-	displayHelligkeit();
-	zeigeRahmen();
+	initNetwork();
+
+	tftBrigthnees();
+	showFrame();
 	
 	configTime(MY_TZ, MY_NTP_SERVER);
 
-	initFs();	// lese Konfig Daten für die Wecker
+	initFs();	// read konfig data of clock
 	
-	Wecker1.setTime(&WeckZeit1);
-	Wecker2.setTime(&WeckZeit2);
-		
 	Serial.println();
 	Serial.println("--------------------------------------");
-	Serial.println("- TFT2.2 Uhr SPI                     -");
+	Serial.println("- TFT2.2 clock spi                    -");
 	Serial.println("--------------------------------------");
-	Serial.println(String("Version    - ") + String(cVersion));
-	Serial.println(String("Builddatum - ") + String(cDatum));
+	Serial.println(String("version    - ") + String(cVersion));
+	Serial.println(String("build date - ") + String(cDatum));
 
 	initIrq();
+
+	showWeatherIcon(bild_44);
+	showTemperature(tempNow);
 }
 
 // ---------------------------------------------------------------------------------------------------
-// Loop - Endlosschleife
+// loop
 // ---------------------------------------------------------------------------------------------------
 void loop(void) {
-	sw01.runStatus();
-	sw02.runStatus();
+	sw01.runState();
+	sw02.runState();
 
-	led.SwPort(sw01.Status());				// LED an wenn Taste 1 betätigt
+	led.SwPort(sw01.Status());				// switch LED on with swith 1
 
-	time(&actualTime);					 	// aktuelle Zeit lesen
-	localtime_r(&actualTime, &timeinfo); 	// timeinfo mit aktueller Zeit beschreiben
+	time(&actualTime);					 	// get actual time
+	localtime_r(&actualTime, &timeinfo); 	// write actual time to timeinfo 
 
-	clWecken::Check();						// Weckzeit prüfen und ggf. Wecken
+	clWecken::Check();						// check wake up time
 
-	zeigeUhrzeit(timeinfo);	 				// Uhrzeit groß anzeigen
-	zeigeDatumUhr(timeinfo); 				// Datum und Uhrzeit in oberer Zeile anzeigen
-	displayHelligkeit();
-	zeigeWeckzeiten();
+	showTime(timeinfo);	 					
+	showDateAndTime(timeinfo); 				
+	tftBrigthnees();
+	showWakeUpTime();
 	
-	Menue.Verwaltung();				        // Abarbeiten der Menüs
+	HMenue.Verwaltung();					// run menue
+	
+	if (bGetWeather) {
+		getActualWeather();	
+		bGetWeather = false;
+	}			   	
 }
 
 // ---------------------------------------------------------------------------------------------------
-// Anzeige Statuszeile
+// show state line
 // ---------------------------------------------------------------------------------------------------
-void zeigeBeschriftung(void) {
+void showLabel(void) {
 	String strText = WiFi.SSID() + String(" - ") + WiFi.localIP().toString();
-	zeigeStatusZeile(strText);
+	showState(strText);
 }
 
-void zeigeVersion(void) {
+void showVersion(void) {
 	String strText = String("Ver. ") + String(cVersion) + String(" - ") + String(cDatum); 
-	zeigeStatusZeile(strText);
+	showState(strText);
 }
 
-void zeigeWetter(void) {
-	String strText = String(tempNow) + String(char(247)) + String("C, ") + String(weatherNowData);
-	zeigeStatusZeile(strText);
+void showWeatherString(void) {
+	//String strText = String(tempNow) + String(char(247)) + String("C, ") + String(weatherNowData);
+	//showState(strText);
+
+	showTemperature(tempNow);
+
+	if (strIcon == String("01d")) {
+		showWeatherIcon (bild_01d);
+	} else if (strIcon == String("01n")) {
+		showWeatherIcon (bild_01n);
+	} else if (strIcon == String("02d")) {
+		showWeatherIcon(bild_02d);
+	} else if (strIcon == String("02n")) {
+		showWeatherIcon(bild_02n);
+	} else if (strIcon == String("03d")) {
+		showWeatherIcon(bild_03d);
+	} else if (strIcon == String("03n")) {
+		showWeatherIcon(bild_03d);
+	} else if (strIcon == String("04d")) {
+		showWeatherIcon(bild_04d);
+	} else if (strIcon == String("04n")) {
+		showWeatherIcon(bild_04d);
+	} else if (strIcon == String("09d")) {
+		showWeatherIcon(bild_09d);
+	} else if (strIcon == String("09n")) {
+		showWeatherIcon(bild_09d);
+	} else if (strIcon == String("10d")) {
+		showWeatherIcon(bild_10d);
+	} else if (strIcon == String("10n")) {
+		showWeatherIcon(bild_10n);
+	} else if (strIcon == String("13d")) {
+		showWeatherIcon(bild_13d);
+	} else if (strIcon == String("13n")) {
+		showWeatherIcon(bild_13d);
+	} else if (strIcon == String("50d")) {
+		showWeatherIcon(bild_50d);
+	} else if (strIcon == String("50n")) {
+		showWeatherIcon(bild_50d);
+	} else {
+		showWeatherIcon(bild_44);
+	}
 }
 
-void zeigeStatusZeile(String strData) {
-	tft.fillRect(5, yBottom + 10, tftWidth - 10, hBottom - 20, TFT_BLACK);
-	tft.setTextColor(TFT_YELLOW);
+void showWeatherIcon(const unsigned short* image) {
+	uint16_t xpos = 6;
+	uint16_t ypos = yMiddle + 3;
+
+	tft.fillRect(xpos, ypos, 64, 64, TFT_BLACK);		// clear screen area
+	tft.pushImage(xpos, ypos, 64, 64, image);
+}
+
+void showTemperature(float fTemp) {
+	static String strTextOld = " ";
+	String strText = String(fTemp,1) + String(char(247)) + String("C");
+
+	tft.setTextSize(1);	
+	//tft.setFreeFont(&Arimo_Regular_12);
+
+	// clear actual string
+	tft.setTextColor(TFT_BLACK, TFT_BLACK);
+	tft.drawCentreString(strTextOld, 6 + 32, yMiddle + (hSpace + 64), 1);	
+
+	// write new string
+	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+	tft.drawCentreString(strText, 6 + 32, yMiddle + (5 + 64), 1);
+
+	//tft.setFreeFont(NULL);
+	strTextOld = strText;	
+}
+
+void showState(String strData) {
+	static String strOld = " ";
+
+	tft.setTextSize(2);	
+
+	// clear actual string
+	tft.setTextColor(TFT_BLACK, TFT_BLACK);
+	tft.drawCentreString(strOld, tftWidth / 2, yBottom + 12, 1);
+
+	// draw new string
+	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
 	tft.drawCentreString(strData, tftWidth / 2, yBottom + 12, 1);
+	
+	strOld = strData;
 }
 
 // ---------------------------------------------------------------------------------------------------
-// Funktionen zu den Menüpunkten
+// menue functions
 // ---------------------------------------------------------------------------------------------------
-bool runHauptMenue(void) {
-	return clWecken::WeckzeitAkivieren(&sw02);
+bool runMainMenue(void) {
+	return clWecken::enableWakeUpTime(&sw02);
 } 
 
-bool runWeckzeit1(void) {
+bool changeWakeUpTime(uint16_t u16Nr) {
 	static uint16_t u16Status = 0;
 	static uint16_t u16StatusOld = 1;
 		
 	bool bResult = false;
 
 	if (u16Status != u16StatusOld) {
-		Serial.println(TraceTime() + String("runWeckzeit1 - ") + String(u16Status));
+		Serial.println(TraceTime() + String("changeWakeUpTime - ") + String(u16Status));
 		u16StatusOld = u16Status;
 	}
 
@@ -236,14 +346,17 @@ bool runWeckzeit1(void) {
 				u16Status = 10;
 			}
 			break;
-		case 10:	
-			if (Wecker1.stelleWeckzeit()) {
-				Wecker1.getWeckStunde().toCharArray(Wecker1_Stunden, 3);   
-				Wecker1.getWeckMinute().toCharArray(Wecker1_Minuten, 3);   
-				saveWeckerConfig();
-				bResult = true;
-				u16Status = 0;
-			} 
+		case 10:
+			if (u16Nr < MAX_WECKER) {	
+				if (Wecker[u16Nr].stelleWeckzeit()) {
+					Wecker[u16Nr].getWeckStunde().toCharArray(WeckerDaten[u16Nr].strStunden, 3);   
+					Wecker[u16Nr].getWeckMinute().toCharArray(WeckerDaten[u16Nr].strMinuten, 3);   
+					Wecker[u16Nr].getWeckTage().toCharArray(WeckerDaten[u16Nr].strTage, 2);   
+					saveWeckerConfig();
+					bResult = true;
+					u16Status = 0;
+				} 
+			}
 			break;
 		default:
 			u16Status = 0;
@@ -252,46 +365,14 @@ bool runWeckzeit1(void) {
 	return bResult;
 }
 
-bool runWeckzeit2(void) {
-	static uint16_t u16Status = 0;
-	static uint16_t u16StatusOld = 1;
-	
-	bool bResult = false;
-
-	if (u16Status != u16StatusOld) {
-		Serial.println(TraceTime() + String("runWeckzeit2 - ") + String(u16Status));
-		u16StatusOld = u16Status;
-	}
-
-	switch (u16Status) {
-		case 0:		// warte bis Tatse losgelassen wurde
-			if (!sw02.Status()) {	
-				u16Status = 5;
-			}
-			break;
-		case 5:		// warte auf Tastendruck
-			bResult = true;	
-			if (sw02.Status()) {	
-				u16Status = 10;
-			}
-			break;
-		case 10:	
-			if (Wecker2.stelleWeckzeit()) {
-				Wecker2.getWeckStunde().toCharArray(Wecker2_Stunden, 3);   
-				Wecker2.getWeckMinute().toCharArray(Wecker2_Minuten, 3);   
-				saveWeckerConfig();
-				bResult = true;
-				u16Status = 0;
-			} 
-			break;
-		default:
-			u16Status = 0;
-			break;	
-	}
-	return bResult;
+bool runWakeUpTime_1(void) {
+	return changeWakeUpTime(0);
+}
+bool runWakeUpTime_2(void) {
+	return changeWakeUpTime(1);
 }
 
-bool runStatus(void) {
+bool runState(void) {
 	static uint16_t u16Status = 0;
 	static uint32_t u32Timer = 0;
 	bool bResult = false;
@@ -304,7 +385,7 @@ bool runStatus(void) {
 			}
 			break;
 		case 10:
-			zeigeBeschriftung();
+			showLabel();
 			u32Timer = millis();
 			u16Status = 20;
 			break;
@@ -314,7 +395,7 @@ bool runStatus(void) {
 			}
 			break;
 		case 30:
-			zeigeVersion();	
+			showVersion();	
 			u32Timer = millis();
 			u16Status = 40;
 			break;
@@ -330,49 +411,6 @@ bool runStatus(void) {
 	
 	return bResult;
 }
-
-bool runWetter(void) {
-	static uint16_t u16Status = 0;
-	static uint32_t u32Timer = 0;
-	bool bResult = false;
-	GBL_STATUS weatherState;
-
-	switch (u16Status) {
-		case 0:
-			bResult = true;
-			if (sw02.Status()) {
-				zeigeStatusZeile(String("Warte auf Wetterdaten"));
-				u16Status = 10;
-			}
-			break;
-		case 10:
-			if (!sw02.Status()) {
-				u16Status = 20;
-			}
-			break; 
-		case 20:
-			weatherState = getWeatherDataState();
-			if (weatherState == GBL_STATUS::ERROR) {
-				Serial.println(TraceTime() + "getWeatherDataState Error");
-				u16Status = 0;
-			} else if (weatherState == GBL_STATUS::READY) {
-				zeigeWetter();
-				u32Timer = millis();
-				u16Status = 30;
-			}
-			break;
-		case 30:
-			if (millis() > (u32Timer + 5000)) {
-				u16Status = 0;
-			}
-			break;
-		default:
-			u16Status = 0;
-			break;
-	}
-
-	return bResult;
-}  
 
 bool runDeleteFile(void) {
 	static uint16_t u16Status = 0;
@@ -390,9 +428,9 @@ bool runDeleteFile(void) {
 			break;
 		case 10:
 			if (LittleFS.remove(cFile)) {
-				zeigeStatusZeile(String("Konfig. deleted"));
+				showState(String("Konfig. deleted"));
 			} else {
-				zeigeStatusZeile(String("Fehler bei delete"));
+				showState(String("Fehler bei delete"));
 			}
 			u32Timer = millis();
 			u16Status = 20;
@@ -407,18 +445,17 @@ bool runDeleteFile(void) {
 			u16Status = 0;
 				break;
 	}
-	
 	return bResult;
 }
 
-void zeigeRahmen(void) {
+void showFrame(void) {
 	tft.fillScreen(TFT_BLACK);
 	tft.drawRoundRect(1, yTop, tftWidth - 1, hTop, 10, TFT_BLUE);
 	tft.drawRoundRect(1, yMiddle, tftWidth - 1, hMiddle, 10, TFT_BLUE);
 	tft.drawRoundRect(1, yBottom, tftWidth - 1, hBottom, 10, TFT_BLUE);
 }
 
-void zeigeDatumUhr(struct tm actTimeinfo) {
+void showDateAndTime(struct tm actTimeinfo) {
 	char str[30];
 	static String strZeitOld = " ";
 	String strZeit;
@@ -429,80 +466,97 @@ void zeigeDatumUhr(struct tm actTimeinfo) {
 	sprintf(str, "%02u:%02u:%02u", actTimeinfo.tm_hour, actTimeinfo.tm_min, actTimeinfo.tm_sec);
 	strZeit += String(str);
 
-	// akuelle Zeit nur neu schreiben wenn sich die Zeit geändert hat
+	// write actual time if time changed
 	if (strZeitOld != strZeit) {
 		tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-		tft.drawCentreString(strZeit, tftWidth / 2, 12, 1);
+		tft.drawCentreString(strZeit, tftWidth / 2, 12,1);
 		strZeitOld = strZeit;
 	}
 }
 
-void zeigeWeckzeiten(void) {
+void showWakeUpTime(void) {
 	static String oldString1 = " ";
 	static String oldString2 = " ";
 
-	String Str1 = Wecker1.getTimeString();
-	String Str2 = Wecker2.getTimeString();
+	String Str1 = Wecker[0].getTimeString();
+	String Str2 = Wecker[1].getTimeString();
 
+	tft.setTextSize(2);	
 	tft.setFreeFont(NULL);
-
+	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+	
 	if (oldString1 != Str1) {
-		tft.drawString(Str1, 20, 145);
+		tft.drawString(Str1, 20, 145, 1);
 		oldString1 = Str1;
 	}
+
 	if (oldString2 != Str2) {
-		tft.drawString(Str2, 20, 165);
-		oldString1 = Str2;
+		tft.drawString(Str2, 20, 165, 1);
+		oldString2 = Str2;
 	}
 }
 
 // -----------------------------------------------------------------------------------------------------
-// Zeitanzeige in der Mitte (groß)
+// show time at the middel of the display
 // -----------------------------------------------------------------------------------------------------
-// Die Anzeige wird nur aktuallisiert wenn die Sekunden auf 0 stehen,
-// also eine neue Minute anfängt. Da als erstes der alte Schriftzug komplett gelöscht wird
-// bevor die aktuelle Zeit angezeigt wird, kommt es zu einem kurzen Flackern.
+// The display is only updated when the seconds are at 0,so a new minute starts. 
+// Since the first thing to do is completely delete the old time string.
+// This create a short flicker of the time string.
 // -----------------------------------------------------------------------------------------------------
-void zeigeUhrzeit(struct tm actTimeinfo) {
+void showTime(struct tm actTimeinfo) {
 	static uint16_t u16State = 0;
 	char str[8];
 	String strZeit;
+	static String strZeitOld = " ";
+	String strInfo = "wait for NTP";
 
 	switch (u16State)  	{
-		case 0: 	// Zeitanzeige initialisieren wenn die NTP Abfrage zum 1. mal komplett ist
+		case 0: 	// init time if ntp call is ready for the first time
 			tft.setFreeFont(NULL);
+			tft.setTextSize(2);	
 			tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-			tft.drawCentreString("Warte auf Zeitserver", tftWidth / 2, 90, 1);
+			tft.drawRightString(strInfo, tftWidth - 10, 90, 1);
 			u16State = 5;
 			break;
-		case 5: 	// Abfrage ob Jahr > 2000 (1900 + 100) ist
+		case 5: 	// check for a valide year > 2000 (1900 + 100) 
 			if (actTimeinfo.tm_year > 100) {
+				tft.setTextColor(TFT_BLACK, TFT_BLACK);
+				tft.drawRightString(strInfo, tftWidth - 10, 90, 1);
 				u16State = 20;
 			} else {
 				u16State = 6;
 			}
 			break;
-		case 6: 	// warte 100ms
+		case 6: 	// wait 100ms
 			delay(100);
 			u16State = 5;
 			break;
-		case 10: 	// Warte auf den Anfang einer neuen Minute (Sekunde == 0)
+		case 10: 	// wait for a new minute (seccond == 0)
 			if (actTimeinfo.tm_sec == 0) {
 				u16State = 20;
 			}
 			break;
-		case 20: 	// aktuelle Zeit ausgeben
-			tft.setFreeFont(FF20);
-			tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+		case 20: 	// show new time string
+			// build new time string
 			sprintf(str, "%u:%02u", actTimeinfo.tm_hour, actTimeinfo.tm_min);
 			strZeit = String(str);
 			
-			tft.fillRect(15, yMiddle + 12, tftWidth - 30, hMiddle - 70, TFT_BLACK);
-			tft.drawCentreString(strZeit, tftWidth / 2, (tftHeight / 2) - 60, 1);
+			tft.setTextSize(1);	
+			tft.setFreeFont(&Arimo_Regular_95);
 			
+			// clear actual time
+			tft.setTextColor(TFT_BLACK, TFT_BLACK);
+			tft.drawRightString(strZeitOld, tftWidth - 10, (tftHeight / 2) - 65, 1);
+			
+			// write new time
+			tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+			tft.drawRightString(strZeit, tftWidth - 10, (tftHeight / 2) - 65, 1);
+
+			tft.setFreeFont(NULL);			
+			strZeitOld = strZeit;
 			u16State = 30;
 			break;
-		case 30: 	// wrate bis Skunden != 0
+		case 30: 	// wait for seccond != 0
 			if (actTimeinfo.tm_sec != 0) {
 				u16State = 10;
 			}
@@ -514,26 +568,32 @@ void zeigeUhrzeit(struct tm actTimeinfo) {
 }
 
 // -------------------------------------------------------------------------------------------------
-// Display Helligkeit über LDR gsteuert
+// TFT backligth brightness, controlled by LDR 
 // -------------------------------------------------------------------------------------------------
-void displayHelligkeit(void) {
-	// pwmValue = 4 * Messwert - 68 -> linearer Zusammenhang empirisch erittelt
-	pwmValue = (4 * analogRead(TFT_POTI)) - 68;		// Analogwert 0 - 1024
+void tftBrigthnees(void) {
+	// pwmValue = 4 * measured value - 68 -> linear relationship determined empirically
+	pwmValue = (4 * analogRead(TFT_POTI)) - 68;		// analog value 0 - 1024
 
-	if (pwmValue < 1) {pwmValue = 1;}				// untere Begrenzung auf 1
-	if (pwmValue > 1024) {pwmValue = 1024;}			// oberer Begrenzung auf 1024
+	if (pwmValue < 1) {pwmValue = 1;}				// set lower limit to 1
+	if (pwmValue > 1024) {pwmValue = 1024;}			// set upper limit to 1024
 
 	analogWrite(TFT_BACKLIGHT, pwmValue);
 }
 
 // -----------------------------------------------------------------------------------
-// Interrupt Funktion - Timer 0 - 1s
-// -----------------------------------------------------------------------------------
-// wird zur Zeit nicht verwendet
+// interrupt function - timer 0 - 1s
 // -----------------------------------------------------------------------------------
 IRAM_ATTR void irqTimer0(void) {
 	//Serial.println(TraceTime() + "Timer IRQ");
-	timer0_write(ESP.getCycleCount() + 80000000L); // Bei 80MHz ergibt sich damit jede Sekunde ein Interrupt
+
+	static uint32_t weatherTimer = 0;
+
+	if (++weatherTimer >= 1800) {
+		weatherTimer = 0;
+		bGetWeather = true;
+	}
+
+	timer0_write(ESP.getCycleCount() + 80000000L); // for 80MHz this means 1 interrupt per seccond
 }
 
 // -----------------------------------------------------------------------------------
@@ -552,43 +612,47 @@ void initGpio(void) {
 	// LED
 	led.Init(LED, POLARITY::POS); 		// GPIO LED high active
 	
-	// TFT Hintergrundbeleuchtung init und einschalten
+	// init an switch on TFT backligth 
 	analogWriteRange(1024);
 	analogWriteFreq(5000);
-	analogWrite(TFT_BACKLIGHT, 1024); 	// Wertebereich 0 - 1024
+	analogWrite(TFT_BACKLIGHT, 1024); 	// valid value 0 - 1024
 }
 
 // -----------------------------------------------------------------------------------
-// init Display
+// init display
 // -----------------------------------------------------------------------------------
 void initDisplay(void) {
 	tft.init();
+	tft.setSwapBytes(true);				// used by push image function
 	tft.setRotation(ROTATION_90);
 	tft.fillScreen(TFT_BLACK);
 
 	tft.setTextColor(TFT_WHITE, TFT_BLACK);
-	tft.setCursor(0, 30);
-	tft.setTextSize(2);				// alle Schriftgrössen * 2
 
 	tftWidth = tft.width();
 	tftHeight = tft.height();
 }
 
 // -----------------------------------------------------------------------------------
-// init Netzwerk
+// init network
 // -----------------------------------------------------------------------------------
 void initNetwork(void) {
 	wm.setAPCallback(wifiCallback);
 	wm.setSaveConfigCallback(saveConfigCallback);
 
-	tft.print("Netzwerverbindung starten\n");
+	tft.setCursor(0, 30);
+	tft.setTextSize(2);				
+	tft.drawString("Netzwerverbindung starten", 10, 10, 1);
+
 	if (wm.autoConnect("ESP_TFT_UHR")) {
-		tft.print(".. Netzwerverbindung OK\n");
-		delay(1000);
+		tft.drawString(".. Netzwerverbindung OK", 10, 40, 1);
+		delay(2000);
 	} else {
-		tft.print(".. Netzwerkfehler !!\n");
-		tft.print(".. ESP startet neu !!\n");
+		tft.drawString(".. Netzwerkfehler !!", 10, 40, 1);
+		tft.drawString(".. ESP startet neu !!", 10, 70, 1);
+		delay(5000);
 		while (true) {;}
+
 	}
 }
 
@@ -602,12 +666,15 @@ void wifiCallback(WiFiManager *myWiFiManager) {
 }
 
 // -----------------------------------------------------------------------------------
-// init File System, lese Konfiguration
+// init file system and read configuration
 // -----------------------------------------------------------------------------------
 void initFs(void) {
 	Serial.println(".. mounting FS");
 
   	if (LittleFS.begin()) {
+
+		//return;  
+
    		Serial.println(".. mounted file system");
     	if (LittleFS.exists("/config.json")) {
       		// file exists, reading and loading
@@ -617,7 +684,7 @@ void initFs(void) {
         		Serial.println(".. opened config file");
         		size_t size = configFile.size();
         		
-				// Allocate a buffer to store contents of the file.
+				// allocate a buffer to store contents of the file.
         		std::unique_ptr<char[]> buf(new char[size]);
 
         		configFile.readBytes(buf.get(), size);
@@ -627,36 +694,35 @@ void initFs(void) {
         		serializeJson(json, Serial);
         		if (!deserializeError) {
           			Serial.println("\nparsed json");
-          			strcpy(Wecker1_Stunden, json["Wecker1_Stunden"]);
-          			strcpy(Wecker1_Minuten, json["Wecker1_Minuten"]);
-					strcpy(Wecker1_Tage, json["Wecker1_Tage"]);
-					strcpy(Wecker1_Aktiv, json["Wecker1_Aktiv"]);  
+					char strData[20];  
+					for (int i = 0; i < MAX_WECKER; i++) {
+						sprintf(strData, "WeckerStunden_%i" , i);
+						strcpy(WeckerDaten[i].strStunden, json[strData]);
+						
+						sprintf(strData, "WeckerMinuten_%i" , i);
+						strcpy(WeckerDaten[i].strMinuten, json[strData]);
+						
+						sprintf(strData, "WeckerTage_%i" , i);
+						strcpy(WeckerDaten[i].strTage, json[strData]);
+						
+						sprintf(strData, "WeckerAktiv_%i" , i);
+						strcpy(WeckerDaten[i].strAktiv, json[strData]); 
 
-          			strcpy(Wecker2_Stunden, json["Wecker2_Stunden"]);
-          			strcpy(Wecker2_Minuten, json["Wecker2_Minuten"]);
-					strcpy(Wecker2_Tage, json["Wecker2_Tage"]);
-					strcpy(Wecker2_Aktiv, json["Wecker2_Aktiv"]);  
-					
-					String Data = (String)Wecker1_Stunden;
-					WeckZeit1.u16Stunde = Data.toInt();  
-					Data = (String)Wecker1_Minuten;
-					WeckZeit1.u16Minute = Data.toInt();
-					Wecker1.setTime(&WeckZeit1);
-					if (Wecker1_Aktiv[0] == '*') {
-						Serial.println(".. Wecker 1 ist aktiv");
-						Wecker1.Start();
-					}	
+						String Data = (String)WeckerDaten[i].strStunden;
+						stWz[i].u16Stunde = Data.toInt();  
 
-					Data = (String)Wecker2_Stunden;
-					WeckZeit2.u16Stunde = Data.toInt();  
-					Data = (String)Wecker2_Minuten;
-					WeckZeit2.u16Minute = Data.toInt();
-					Wecker2.setTime(&WeckZeit2);
-					if (Wecker2_Aktiv[0] == '*') {
-						Serial.println(".. Wecker 2 ist aktiv");
-						Wecker2.Start();
-					}
-					
+						Data = (String)WeckerDaten[i].strMinuten;
+						stWz[i].u16Minute = Data.toInt();
+
+						Data = (String)WeckerDaten[i].strTage;
+						stWz[i].Wochentag = (WOCHEN_TAG)Data.toInt();
+
+						Wecker[i].setTime(&stWz[i]);
+						if (WeckerDaten[i].strAktiv[0] == '*') {
+							Serial.println((String)".. Wecker " + String(i) + (String)" ist aktiv");
+							Wecker[i].Start();
+						}	
+					}					
           		} else {
           			Serial.println(".. failed to load json config");
         		}
@@ -666,10 +732,6 @@ void initFs(void) {
   	} else {
     	Serial.println(".. failed to mount FS");
   	}
-
-  	Serial.println("Date aus dem Config File : ");
-  	Serial.println("\tW1 : " + String(Wecker1_Stunden) + String(":") + String(Wecker1_Minuten));
-  	Serial.println("\tW2 : " + String(Wecker2_Stunden) + String(":") + String(Wecker2_Minuten));
 }
 
 // callback notifying us of the need to save config
@@ -681,26 +743,26 @@ void saveConfigCallback () {
 void saveWeckerConfig(void) {
 	Serial.println("Konfiguration speichern");
 	DynamicJsonDocument json(1024);
-	json["Wecker1_Stunden"] = Wecker1_Stunden;
-   	json["Wecker1_Minuten"] = Wecker1_Minuten;
-	json["Wecker1_Tage"] = Wecker1_Tage;
-
-	if (Wecker1.getStatus()) {
-		json["Wecker1_Aktiv"] = "*";  
-	} else {
-		json["Wecker1_Aktiv"] = " ";  
-	}
-
-    json["Wecker2_Stunden"] = Wecker2_Stunden;
-   	json["Wecker2_Minuten"] = Wecker2_Minuten;
-	json["Wecker2_Tage"] = Wecker2_Tage;
+	char strData[20]; 
 	
-	if (Wecker2.getStatus()) {
-		json["Wecker2_Aktiv"] = "*";  
-	} else {
-		json["Wecker2_Aktiv"] = " ";  
-	}
+	for(int i = 0; i < MAX_WECKER; i++) {
+		sprintf(strData, "WeckerStunden_%i" , i);
+		json[strData] = WeckerDaten[i].strStunden;
+		
+		sprintf(strData, "WeckerMinuten_%i" , i);
+		json[strData] = WeckerDaten[i].strMinuten;
+		
+		sprintf(strData, "WeckerTage_%i" , i);
+		json[strData] = WeckerDaten[i].strTage;
 
+		sprintf(strData, "WeckerAktiv_%i" , i);
+		if (Wecker[i].getStatus()) {
+			json[strData] = "*";  
+		} else {
+			json[strData] = " ";  
+		}
+	}
+    
     File configFile = LittleFS.open("/config.json", "w");
     if (!configFile) {
     	Serial.println("failed to open config file for writing");
@@ -715,7 +777,7 @@ void saveWeckerConfig(void) {
 }
 
 // -----------------------------------------------------------------------------------
-// init Zeit
+// init time
 // -----------------------------------------------------------------------------------
 bool initTime(void) {
 	bool result = false;
@@ -731,101 +793,41 @@ bool initTime(void) {
 // -----------------------------------------------------------------------------------
 void initIrq(void) {
 	Serial.println(TraceTime() + "Konfigration der Interrupts");
-	noInterrupts(); // Interrupts sperren
+	noInterrupts(); // disable all interrupts 
 
 	timer0_isr_init();
 	timer0_attachInterrupt(irqTimer0);
 	timer0_write(ESP.getCycleCount() + 80000000L); // 80MHz == 1s
 
-	interrupts(); 	// Interrups freigeben
+	interrupts(); 	// enable all interrups
 }
 
 // -----------------------------------------------------------------------------------
-// hohle die Wetterdaten von openweathermap
+// get weather data from internet - https:\\openweathermap.org
 // -----------------------------------------------------------------------------------
-GBL_STATUS getWeatherDataState(void) {
-	static uint16_t u16State = 0;
-	static uint16_t u16StateOld = 1;
-	static unsigned long AktZeit = 0;
-	GBL_STATUS result = GBL_STATUS::WAIT;
+String getActualWeather(void) {
+	String strResult = "no data";
+	String strUrl = "GET /data/2.5/weather?id=" + CityId + "&appid=" + ApiKey + "&lang=de&mode=json&units=metric";
+	
+	Serial.println(TraceTime() + "getActualWeather");
 
-	if (u16State != u16StateOld) {
-		Serial.println(TraceTime() + "WD Status " + String(u16State));
-		u16StateOld = u16State;
-	}
-
-	switch (u16State) {
-		case 0:
-			if (getWeather() != GBL_STATUS::READY) {
-				result = GBL_STATUS::ERROR;
-			} else {
-				AktZeit = millis();
-				result = GBL_STATUS::RUN;
-				u16State = 10;
-			}
-			break;
-		case 10:
-			if (client.available()) {
-				getWeatherData();
-				result = GBL_STATUS::READY;
-				u16State = 0;
-			} else if (millis() > (AktZeit + 5000)) { 		// timeout
-				result = GBL_STATUS::ERROR;
-				u16State = 0;
-			} else {
-				result = GBL_STATUS::RUN;
-			}
-			break;
-		default:
-			u16State = 0;
-			break;
-	}
-	return result;
-}
-
-GBL_STATUS getWeather(void) {
-	GBL_STATUS result = GBL_STATUS::WAIT;
-
-	Serial.println(TraceTime() + "getWeather");
-
-	// /data/2.5/weather?id=2920512&appid=123456789abcdefg.....=json&units=metric
-	// api.openweathermap.org/data/2.5/weather?id={city id}&appid={your api key}
-	client.stop();
-	Serial.print(TraceTime() + "Connection to ");
-	Serial.println(Server);
-
-	// Wenn Verbindung, dann Serverdaten abrufen
 	if (client.connect(Server, 80)) {
-		Serial.println(TraceTime() + "Connected to server");
-		// HTTP Request starten
-		String WebAsk = "GET /data/2.5/weather?id=" + CityId + "&appid=" + ApiKey;
-		WebAsk = WebAsk + "&lang=de&mode=json&units=metric";
-		Serial.println(TraceTime() + WebAsk);
-		client.println(WebAsk);
-		client.println("Host: api.openweathermap.org");
-		client.println("User-Agent: ESP8266WiFi/1.1");
-		client.println("Connection: close");
-		client.println();
-		result = GBL_STATUS::READY;
-	} else {
-		Serial.println(TraceTime() + "Unable to connect");
-		result = GBL_STATUS::ERROR;
+		client.println(strUrl);
+		strResult = client.readString();
 	}
-	return result;
+
+	Serial.println(TraceTime() + strResult);
+
+	if (strResult != "no data") {
+		strIcon = getJsonWeatherString(strResult);
+		showWeatherString();
+	}
+
+	return strResult;
 }
 
-void getWeatherData(void) {
-	Serial.println(TraceTime() + "getWeatherData");
-	String WetterDaten = "";
-	WetterDaten = WetterDaten + client.readString();
-	Serial.print(TraceTime() + "Rohdaten:");
-	Serial.println(WetterDaten);
-
-	String Icon = WetterDatenAusJson(WetterDaten);
-}
-
-String WetterDatenAusJson(String WetterDaten) {
-	Serial.println(TraceTime() + "WetterDatenAusJson");
+String getJsonWeatherString(String WetterDaten) {
+	Serial.println(TraceTime() + "getJsonWeatherString");
 	DeserializationError error = deserializeJson(doc, WetterDaten);
 
 	if (error) {
@@ -834,7 +836,7 @@ String WetterDatenAusJson(String WetterDaten) {
 		return (String) "error";
 	}
 
-	// Daten vom JSON-Tree abrufen
+	// get data from JSON-tree 
 	tempNow = doc["main"]["temp"];
 	tempMin = doc["main"]["temp_min"];
 	tempMax = doc["main"]["temp_max"];
@@ -842,6 +844,7 @@ String WetterDatenAusJson(String WetterDaten) {
 	pressureNow = doc["main"]["pressure"];
 	const char *city = doc["name"];
 	const char *weather = doc["weather"][0]["description"];
+	const char *icon = doc["weather"][0]["icon"];
 
 	cityData = (char *)city;
 	weatherNowData = (char *)weather;
@@ -863,12 +866,14 @@ String WetterDatenAusJson(String WetterDaten) {
 	Serial.println("%");
 	Serial.print("Wetter       : ");
 	Serial.println(weather);
+	Serial.print("Icon Name    : ");
+	Serial.println(icon);
 	Serial.println("----------------------------------------------");
 
 	Serial.print("memory used : ");
 	Serial.println(doc.memoryUsage());
 
-	return doc["weather"][0]["icon"];
+	return icon;
 }
 
 // -----------------------------------------------------------------------------------

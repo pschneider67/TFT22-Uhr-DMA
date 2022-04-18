@@ -18,7 +18,7 @@
 //    2. FF# where # is a number determined by looking at the list below
 //       an example being:
 //
-//       tft.setFreeFont(FF32);
+//       tft.Font(FF32);
 //
 //    3. An abbreviation of the file name. Look at the list below to see
 //       the abbreviations used, for example:
