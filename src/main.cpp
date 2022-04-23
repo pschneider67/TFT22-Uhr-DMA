@@ -69,6 +69,9 @@ time_t actualTime;
 struct tm timeinfo;
 
 TFT_eSPI tft = TFT_eSPI();
+TFT_eSprite actTimeToShow    = TFT_eSprite(&tft); 		// sprite object actTimeToShow
+TFT_eSprite actDateToShow    = TFT_eSprite(&tft);		// sprite to show actual date
+TFT_eSprite actTimeSecToShow = TFT_eSprite(&tft);		// sprite to show actual time and sec.
 
 // use openweather setup
 String ApiKey = API_KEY;
@@ -77,6 +80,9 @@ const char Server[] = "api.openweathermap.org";
 String strIcon;
 
 const char *WeekDay[7] = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr. ", "Sa. "};
+
+const GFXfont *DefaultFont = &Arimo_Regular_24;
+const GFXfont *TimeFont = &Arimo_Regular_95;
 
 const uint16_t hSpace = 8;							 // space
 const uint16_t yTop = 0;							 // start upper area
@@ -142,7 +148,7 @@ menue_t hmMenue[6] = {
 	{runWakeUpTime_2, 	String("Weckzeit 2 einstellen"), false},
 	{runWeatherForcast, String("Wettervorhersage"),      false},
 	{runState,        	String("Statusanzeige"),         false},
-	{runDeleteFile,   	String("Delete Konfigiration"),   true}
+	{runDeleteFile,   	String("Delete Konfiguration"),   true}
 };
 
 // menue control
@@ -195,15 +201,17 @@ void setup() {
 	Serial.println(String("build date - ") + String(cDatum));
 
 	initIrq();
-
 	showWeatherIcon(bild_44, xPosWeatherNow, yPosWeatherNow);
-	showTemperature(tempToday, xPosWeatherNow, yPosWeatherNow);
 }
 
 // ---------------------------------------------------------------------------------------------------
 // loop
 // ---------------------------------------------------------------------------------------------------
 void loop(void) {
+	//String strText = String("T:") + String(tempToday, 1) + String(char(247)) + String("C, ") + String("H:") + String(humidityToday, 1) + String("%");
+	String strText = String("T:") + String(tempToday, 1) + String("'C, ") + String("H:") + String(humidityToday, 1) + String("%");
+	static String strTextOld = " ";
+
 	sw01.runState();
 	sw02.runState();
 
@@ -220,9 +228,17 @@ void loop(void) {
 	
 	HMenue.Verwaltung();					// run menue
 	
+	if (HMenue.getAktualMenue() != 0) {
+		strTextOld = " ";
+	}
+
 	// show clock and weather only at menue piont 0
-	switch(HMenue.getAktualMenue()) {
+	switch (HMenue.getAktualMenue()) {
 		case 0:
+			if (strTextOld != strText) {
+				strTextOld = strText;
+				showState(strText);
+			}
 		case 1:
 		case 2:
 		case 4:
@@ -230,6 +246,7 @@ void loop(void) {
 			showTime(timeinfo);
 			if (bGetWeather) {
 				getActualWeather();	
+				//getWeatherForcast();
 				bGetWeather = false;
 			}	
 			break;
@@ -267,52 +284,31 @@ void showWeather(void) {
 	else if (strIcon == String("50d")) {showWeatherIcon(bild_50d, xPosWeatherNow, yPosWeatherNow);}
 	else if (strIcon == String("50n")) {showWeatherIcon(bild_50d, xPosWeatherNow, yPosWeatherNow);}
 	else {showWeatherIcon(bild_44, xPosWeatherNow, yPosWeatherNow);}
-
-	showTemperature(tempToday, xPosWeatherNow, yPosWeatherNow);
 }
 
 void showWeatherIcon(const unsigned short* image, uint16_t xpos, uint16_t ypos) {
-	tft.fillRect(xpos, ypos, 64, 64, TFT_BLACK);		// clear screen area
-	tft.pushImage(xpos, ypos, 64, 64, image);
-}
-
-void showTemperature(float fTemp, uint16_t xpos, uint16_t ypos) {
-	static String strTextOld = " ";
-	static String strTextOld2 = " ";
-	String strText = String(fTemp, 1) + String(char(247)) + String("C");
-	String strText2 = String(humidityToday, 1) + String("%");
+	uint16_t u16Width = 64;
+	uint16_t u16Higth = 64;
 	
-	tft.setTextSize(1);	
-	//tft.setFreeFont(FSB9);
-
-	// clear actual string
-	tft.setTextColor(TFT_BLACK, TFT_BLACK);
-	tft.drawCentreString(strTextOld, xpos + 32, ypos + 5, 1);	
-	tft.drawCentreString(strTextOld2, xpos + 32, ypos + 15, 1);	
-
-
-	// write new string
-	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-	tft.drawCentreString(strText, 6 + 32, yMiddle + (5 + 64), 1);
-	tft.drawCentreString(strText2, 6 + 32, yMiddle + (16 + 64), 1);
-
-	//tft.setFreeFont(NULL);
-	strTextOld = strText;	
+	tft.fillRect(xpos, ypos, u16Width, u16Higth, TFT_BLACK);	
+	tft.pushImage(xpos, ypos, 64, 64, image);
 }
 
 void showState(String strData) {
 	static String strOld = " ";
 
-	tft.setTextSize(2);	
+	tft.setFreeFont(DefaultFont);
+	tft.setTextSize(1);	
 
 	// clear actual string
 	tft.setTextColor(TFT_BLACK, TFT_BLACK);
-	tft.drawCentreString(strOld, tftWidth / 2, yBottom + 12, 1);
+	tft.drawCentreString(strOld, tftWidth / 2, yBottom + 9, 1);
 
 	// draw new string
 	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-	tft.drawCentreString(strData, tftWidth / 2, yBottom + 12, 1);
-	
+	tft.drawCentreString(strData, tftWidth / 2, yBottom + 9, 1);
+	tft.setFreeFont(NULL);
+
 	strOld = strData;
 }
 
@@ -457,6 +453,7 @@ bool runWeatherForcast (void) {
 			bResult = true;
 			if (sw02.Status()) {
 				Serial.printf("get Weather forcast");
+				showState("warte auf Wetterdaten");
 				u16Status = 10;
 			}
 			break;
@@ -485,23 +482,59 @@ void showFrame(void) {
 }
 
 void showDateAndTime(struct tm actTimeinfo) {
-	char str[30];
-	static String strZeitOld = " ";
-	String strZeit;
+	uint16_t spriteHigth = 30;
+	
+	// date
+	uint16_t spriteWidth1 = (tftWidth / 2) + 16;
+	uint16_t spriteXPos1  = 6;	
+	uint16_t spriteYPos1  = 4;
 
-	strZeit = String(WeekDay[actTimeinfo.tm_wday]);
-	sprintf(str, "%02u.%02u.%4u - ", actTimeinfo.tm_mday, actTimeinfo.tm_mon + 1, 1900 + actTimeinfo.tm_year);
-	strZeit += String(str);
+	// time
+	uint16_t spriteWidth2 = (tftWidth / 2) - 28;
+	uint16_t spriteXPos2  = (tftWidth / 2) + 22;	
+	uint16_t spriteYPos2  = 4;
+
+	char str[20];
+	static String strTimeOld = " ";
+	String strTime;
+	
+	static String strDateOld = " ";
+	String strDate;
+
 	sprintf(str, "%02u:%02u:%02u", actTimeinfo.tm_hour, actTimeinfo.tm_min, actTimeinfo.tm_sec);
-	strZeit += String(str);
-
+	strTime = String(str);
+	
 	// write actual time if time changed
-	if (strZeitOld != strZeit) {
-		tft.setFreeFont(NULL);
-		tft.setTextSize(2);	
-		tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-		tft.drawCentreString(strZeit, tftWidth / 2, 12,1);
-		strZeitOld = strZeit;
+	if (strTimeOld != strTime) {
+		actTimeSecToShow.setColorDepth(8);
+		actTimeSecToShow.createSprite(spriteWidth2, spriteHigth);
+		actTimeSecToShow.fillSprite(TFT_BLACK);
+		
+		actTimeSecToShow.setFreeFont(DefaultFont);
+		actTimeSecToShow.setTextSize(1);	
+		actTimeSecToShow.setTextColor(TFT_YELLOW);
+		actTimeSecToShow.drawRightString(strTime, spriteWidth2, (spriteHigth / 2) - 10, 1);
+		
+		actTimeSecToShow.pushSprite(spriteXPos2, spriteYPos2);	// show sprite at screen
+		strTimeOld == strTime;
+	}
+
+	strDate = String(WeekDay[actTimeinfo.tm_wday]);
+	sprintf(str, "%02u.%02u.%4u", actTimeinfo.tm_mday, actTimeinfo.tm_mon + 1, 1900 + actTimeinfo.tm_year);
+	strDate += String(str);
+
+	if (strDateOld != strDate) {
+		actDateToShow.setColorDepth(8);
+		actDateToShow.createSprite(spriteWidth1, spriteHigth);
+		actDateToShow.fillSprite(TFT_BLACK);
+	
+		actDateToShow.setFreeFont(DefaultFont);
+		actDateToShow.setTextSize(1);	
+		actDateToShow.setTextColor(TFT_YELLOW);
+	
+		actDateToShow.drawString(strDate, 0, (spriteHigth / 2) - 10, 1);
+		actDateToShow.pushSprite(spriteXPos1, spriteYPos1);
+		strDateOld == strDate;
 	}
 }
 
@@ -512,17 +545,65 @@ void showWakeUpTime(void) {
 	String Str1 = Wecker[0].getTimeString();
 	String Str2 = Wecker[1].getTimeString();
 
-	tft.setFreeFont(NULL);
-	tft.setTextSize(2);	
+	String strName1 = Str1.substring(0,6);
+	String strName2 = Str2.substring(0,6);
+
+	String strH1 = Str1.substring(6,8);
+	String strH2 = Str2.substring(6,8);
+
+	String strM1 = Str1.substring(9,11);
+	String strM2 = Str2.substring(9,11);
+
+	String strD1 = Str1.substring(14,Str1.length());
+	String strD2 = Str2.substring(14,Str2.length());
+
+	tft.setFreeFont(DefaultFont);
+	tft.setTextSize(1);	
 	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
 	
 	if (oldString1 != Str1) {
-		tft.drawString(Str1, 20, 145, 1);
+		Serial.println(strName1 + strH1 + String(":") + strM1 + String(" : ") + strD1);
+		tft.drawString(strName1, 10, 140);
+		if (strH1 != "  ") {
+			tft.drawString(strH1, 90, 140);
+		} else {
+			tft.fillRect(90, 140, 30, 21, TFT_BLACK);
+		}
+		tft.drawString(":", 120, 140);
+		if (strM1 != "  ") {
+			tft.drawString(strM1, 130, 140);
+		} else {
+			tft.fillRect(130, 140, 30, 21, TFT_BLACK);
+		}
+		tft.drawString(" : ", 158, 140);
+		if (strD1.substring(0,1) != " ") {
+			tft.drawString(strD1, 180, 140);
+		} else {
+			tft.fillRect(180, 140, 320 - 190, 21, TFT_BLACK);
+		}
 		oldString1 = Str1;
 	}
 
 	if (oldString2 != Str2) {
-		tft.drawString(Str2, 20, 165, 1);
+		Serial.println(strName2 + strH2 + String(":") + strM2 + String(" : ") + strD2);
+		tft.drawString(strName2, 10, 165);
+		if (strH2 != "  ") {
+			tft.drawString(strH2, 90, 165);
+		} else {
+			tft.fillRect(90, 165, 30, 21, TFT_BLACK);
+		}
+		tft.drawString(":", 120, 165);
+		if (strM2 != "  ") {
+			tft.drawString(strM2, 130, 165);
+		} else {
+			tft.fillRect(130, 165, 30, 21, TFT_BLACK);
+		}
+		tft.drawString(" : ", 158, 165);
+		if (strD2.substring(0,1) != " ") {
+			tft.drawString(strD2, 180, 165);
+		} else {
+			tft.fillRect(180, 165, 320 - 190, 21, TFT_BLACK);
+		}
 		oldString2 = Str2;
 	}
 }
@@ -530,29 +611,41 @@ void showWakeUpTime(void) {
 // -----------------------------------------------------------------------------------------------------
 // show time at the middel of the display
 // -----------------------------------------------------------------------------------------------------
-// The display is only updated when the seconds are at 0,so a new minute starts. 
-// Since the first thing to do is completely delete the old time string.
-// This create a short flicker of the time string.
+// The display is only updated when the seconds are at 0, so a new minute starts. 
+// First thing to do is completely delete the old time string by writing the string 
+// with set the text color to the background color.
+// Then we can write the new time string to the sprite object.
+// At last the sprite object is shown at the display.
 // -----------------------------------------------------------------------------------------------------
 void showTime(struct tm actTimeinfo) {
 	static uint16_t u16State = 0;
+	static String strZeitOld = " ";
+
+	uint16_t spriteWidth = tftWidth - 84;
+	uint16_t spriteHigth = 85;
+	uint16_t spriteYPos  = yMiddle + hSpace;
+	uint16_t spriteXPos  = 76;	
+
 	char str[8];
 	String strZeit;
-	static String strZeitOld = " ";
 	String strInfo = "wait for NTP";
 
 	switch (u16State)  	{
 		case 0: 	// init time if ntp call is ready for the first time
-			tft.setFreeFont(NULL);
-			tft.setTextSize(2);	
-			tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-			tft.drawRightString(strInfo, tftWidth - 10, 90, 1);
+			actTimeToShow.setColorDepth(8);
+			actTimeToShow.createSprite(spriteWidth, spriteHigth);
+			actTimeToShow.setFreeFont(DefaultFont);
+			actTimeToShow.setTextSize(1);		
+			actTimeToShow.fillSprite(TFT_BLACK);
+
+			actTimeToShow.setTextColor(TFT_YELLOW);
+			actTimeToShow.drawRightString(strInfo, spriteWidth - 10, (spriteHigth / 2) - 14, 1);
+			actTimeToShow.pushSprite(spriteXPos, spriteYPos);			// show sprite at screen
 			u16State = 5;
 			break;
 		case 5: 	// check for a valide year > 2000 (1900 + 100) 
 			if (actTimeinfo.tm_year > 100) {
-				tft.setTextColor(TFT_BLACK, TFT_BLACK);
-				tft.drawRightString(strInfo, tftWidth - 10, 90, 1);
+				actTimeToShow.fillSprite(TFT_BLACK);
 				u16State = 20;
 			} else {
 				u16State = 6;
@@ -572,18 +665,20 @@ void showTime(struct tm actTimeinfo) {
 			sprintf(str, "%u:%02u", actTimeinfo.tm_hour, actTimeinfo.tm_min);
 			strZeit = String(str);
 			
-			tft.setTextSize(1);	
-			tft.setFreeFont(&Arimo_Regular_95);
+			actTimeToShow.setTextSize(1);	
+			actTimeToShow.setFreeFont(TimeFont);
 			
 			// clear actual time
-			tft.setTextColor(TFT_BLACK, TFT_BLACK);
-			tft.drawRightString(strZeitOld, tftWidth - 10, (tftHeight / 2) - 65, 1);
+			actTimeToShow.setTextColor(TFT_BLACK);
+			actTimeToShow.drawRightString(strZeitOld, spriteWidth, 0, 1);
 			
 			// write new time
-			tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-			tft.drawRightString(strZeit, tftWidth - 10, (tftHeight / 2) - 65, 1);
+			actTimeToShow.setTextColor(TFT_YELLOW);
+			actTimeToShow.drawRightString(strZeit, spriteWidth, 0, 1);
+			
+			// show sprite at screen
+			actTimeToShow.pushSprite(spriteXPos, spriteYPos);
 
-			tft.setFreeFont(NULL);			
 			strZeitOld = strZeit;
 			u16State = 30;
 			break;
@@ -672,15 +767,18 @@ void initNetwork(void) {
 	wm.setSaveConfigCallback(saveConfigCallback);
 
 	tft.setCursor(0, 30);
-	tft.setTextSize(2);				
-	tft.drawString("Netzwerverbindung starten", 10, 10, 1);
+	tft.setFreeFont(DefaultFont);
+	tft.setTextSize(1);	
+	tft.drawString("WLan starten", 10, 10);
 
 	if (wm.autoConnect("ESP_TFT_UHR")) {
-		tft.drawString(".. Netzwerverbindung OK", 10, 40, 1);
-		delay(2000);
+		tft.drawString(".. WLan OK", 10, 40);
+		String strText = String(".. ") + WiFi.SSID() + String(" - ") + WiFi.localIP().toString();
+		tft.drawString(strText, 10, 70);
+		delay(4000);
 	} else {
-		tft.drawString(".. Netzwerkfehler !!", 10, 40, 1);
-		tft.drawString(".. ESP startet neu !!", 10, 70, 1);
+		tft.drawString(".. WLan Fehler !!", 10, 40);
+		tft.drawString(".. ESP Reset !!", 10, 70);
 		delay(5000);
 		while (true) {;}
 
@@ -875,7 +973,6 @@ String getWeatherForcast(void) {
 
 	if (strResult != "no data") {
 		decodeWeatherForcast(strResult);
-		//showWeather();
 	}
 
 	return strResult;

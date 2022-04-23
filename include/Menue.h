@@ -17,7 +17,8 @@ class clMenue {
         ~clMenue(){}
         clMenue (clIn *_MenueTaster, menue_t *_MenueArray, void (*_cbAnzeige)(String));
         bool Verwaltung(void);
-      
+        uint16_t getAktualMenue(void);
+
     private:
         void (*cbAnzeige)(String);	
         clIn *MenueTaster;

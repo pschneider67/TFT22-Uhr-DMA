@@ -110,13 +110,15 @@ void showDateAndTime(struct tm);
 void showTime(struct tm);
 void showWakeUpTime(void);
 void showState(String strData); 
-void showWeatherIcon(const unsigned short*);
-void showTemperature(float);
+void showWeatherIcon(const unsigned short*, uint16_t, uint16_t);
+
 bool enableWakeUpTime(clIn *);
 void tftBrigthnees(void);
+
 void initGpio(void);
 void initDisplay(void);
 void initNetwork(void);
+
 void wifiCallback(WiFiManager *myWiFiManager);
 bool initTime(void);
 void initIrq(void);
@@ -126,7 +128,9 @@ void saveWeckerConfig(void);
 void showWeatherString(void);
 
 String getActualWeather(void);
-String getJsonWeatherString(String WetterDaten);
+String decodeCurrentWeather(String WetterDaten);
+String getWeatherForcast(void);
+void decodeWeatherForcast(String WetterDaten);
 
 bool runMainMenue(void);
 bool changeWakeUpTime(uint16_t);  
@@ -134,6 +138,7 @@ bool runWakeUpTime_1(void);
 bool runWakeUpTime_2(void);
 bool runState(void);
 bool runDeleteFile(void);
+bool runWeatherForcast(void);
 
 void irqTimer0(void);
 void irqSw01(void);

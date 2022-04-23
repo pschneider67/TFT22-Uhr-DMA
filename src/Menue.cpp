@@ -15,6 +15,10 @@ clMenue::clMenue(clIn *_MenueTaster, menue_t *_MenueArray, void (*_cbAnzeige)(St
     u16MenueCount = 0;
 }
 
+uint16_t clMenue::getAktualMenue(void) {
+    return u16MenueCount;
+}
+
 bool clMenue::Verwaltung(void) {
     bool bResult = false;
     static uint16_t u16Status = 0;

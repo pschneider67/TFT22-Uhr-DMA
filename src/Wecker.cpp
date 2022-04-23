@@ -115,9 +115,9 @@ String clWecken::getTimeString(void) {
             break;
         case 50:    // Wochentage aus
             if (bAktive) {
-                sprintf(cStr, "W%u: * %02u:%02u :        ", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute);
+                sprintf(cStr, "W%u: * %02u:%02u :   ", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute);
             } else {
-                sprintf(cStr, "W%u:   %02u:%02u :        ", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute);
+                sprintf(cStr, "W%u:   %02u:%02u :   ", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute);
             }
             if (millis() > (u32Timer1 + 300)) {
                 u32Timer1 = millis();
