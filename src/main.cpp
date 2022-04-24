@@ -34,9 +34,9 @@
 #include <TFT_eSPI.h> 		
 #include <TimeLib.h>
 #include <ArduinoJson.h>
+#include <ArduinoOTA.h> 		// OTA Upload via ArduinoIDE
 
 #include "font.h"
-#include "Free_Fonts.h"
 #include "TFT22-Uhr.h"
 
 // weather icons 64x64
@@ -93,7 +93,7 @@ const uint16_t yBottom = yMiddle + hMiddle + hSpace; // start lower area
 const uint16_t hBottom = 40;						 // higth of lower area
 
 const uint16_t xPosWeatherNow = 6;
-const uint16_t yPosWeatherNow = yMiddle + 3;
+const uint16_t yPosWeatherNow = yMiddle + 5;
 
 uint16_t tftWidth;
 uint16_t tftHeight;
@@ -202,6 +202,39 @@ void setup() {
 
 	initIrq();
 	showWeatherIcon(bild_44, xPosWeatherNow, yPosWeatherNow);
+
+ 	ArduinoOTA.onStart([]() {  
+	 	tft.fillScreen(TFT_BLACK);
+		tft.setFreeFont(DefaultFont);
+		tft.setTextColor(TFT_WHITE, TFT_BLACK);
+		tft.setCursor(0,30);
+		tft.println(".. Start Update");
+		tft.println(".. Update running");
+  	});
+ 	ArduinoOTA.onEnd([]() {  
+		tft.println(" ");
+		tft.println(".. Restart System");
+		delay(2000);
+  	});
+	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+		static uint16_t u16FirstCall = true;
+		static uint16_t u16Count = 0;
+		if (u16FirstCall) {
+			tft.setCursor(0, 88); 
+			tft.print(".. Progress: ");
+			u16FirstCall = false;
+		} else {
+			if (u16Count++ == 25) {
+				tft.print(".");
+				u16Count = 0;
+			}
+			if (total == progress) {
+				tft.println(" ");
+				tft.print(".. Update ready");
+			}
+		}
+	});
+	ArduinoOTA.begin(); 	// OTA Upload via ArduinoIDE
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -212,6 +245,8 @@ void loop(void) {
 	String strText = String("T:") + String(tempToday, 1) + String("'C, ") + String("H:") + String(humidityToday, 1) + String("%");
 	static String strTextOld = " ";
 
+	ArduinoOTA.handle(); 					// OTA Upload via ArduinoIDE
+	
 	sw01.runState();
 	sw02.runState();
 
