@@ -203,6 +203,7 @@ void setup() {
 	initIrq();
 	showWeatherIcon(bild_44, xPosWeatherNow, yPosWeatherNow);
 
+	// config OTA 
  	ArduinoOTA.onStart([]() {  
 	 	tft.fillScreen(TFT_BLACK);
 		tft.setFreeFont(DefaultFont);
@@ -234,7 +235,7 @@ void setup() {
 			}
 		}
 	});
-	ArduinoOTA.begin(); 	// OTA Upload via ArduinoIDE
+	ArduinoOTA.begin(); 	
 }
 
 // ---------------------------------------------------------------------------------------------------
