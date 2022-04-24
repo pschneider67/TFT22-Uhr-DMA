@@ -6,7 +6,7 @@ Kurze Beschreibung des Weckers
 Bedienelemente    
 Taster 1 - Menüumschaltung <br>
 Der Taster muss so lange gedrückt werden bis in der Statuszeile (unten) ein neuer Menüpunkt angezeigt wird.
-Nun kann man ducrh die Menüs achalten.<br><br>
+Nun kann man ducrh die Menüs schalten.<br><br>
 Taster 2     
 Mit diesem Taster wird das jeweilige Menü gestartet. Die Taste muss so lange gedrückt werden bis eine Aktion sichtbar wird.
 <br><br>
