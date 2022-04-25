@@ -12,53 +12,27 @@ enum class POLARITY: uint16_t {
 	POS = 1
 };
 
-enum class GBL_STATUS: uint16_t {
-	SLEEP = 0,
-	WAIT  = 1,
-	RUN   = 2, 
-	ERROR = 3,
-	READY = 4
-};
-
 #include <WiFiManager.h> 	// https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 
 #include "psOutput.h"
 #include "psInput.h"
-#include "Wecker.h"
-#include "Menue.h"
+#include "psWecker.h"
+#include "psMenue.h"
 
-/*
-*WM: Connection result:
-*WM: 3
-*WM: IP Address:
-*WM: 192.168.2.10
-Konfigration der Interrupts
-
-Warte auf Zeitserver
-Aktuelle Zeit wurde geladen
-
-HTTP/1.1 200 OK
-Server: openresty
-Date: Mon, 15 Jun 2020 19:35:24 GMT
-Content-Type: application/json; charset=utf-8
-Content-Length: 444
-Connection: close
-X-Cache-Key: /data/2.5/weather?APPID=123456789...&cnt=2&id=2920512&lang=de&mode=json&units=metric
-Access-Control-Allow-Origin: *
-Access-Control-Allow-Credentials: true
-Access-Control-Allow-Methods: GET, POST
-
-{"coord":{"lon":8.65,"lat":50.58},"weather":[{"id":804,"main":"Clouds","description":"Bedeckt","icon":"04d"}],"base":"stations","main":{"temp":16.72,"feels_like":17.54,"temp_min":16.11,"temp_max":17.22,"pressure":1022,"humidity":85},"wind":{"speed":0.73,"deg":172},"clouds":{"all":100},"dt":1592249724,"sys":{"type":3,"id":2011885,"country":"DE","sunrise":1592190761,"sunset":1592249959},"timezone":7200,"id":2920512,"name":"Gießen","cod":200}
-------------------------------------------------------------
-Aktuelle Wetterdaten für Gießen
-------------------------------------------------------------
-Temperatur          : 16.72°C
-Luftfeuschtigkeit   : 85.00%
-Luftdruck           : 1022.00 hpa
-Windgeschwindigkeit : 0.73 km/h
-Beschreibung        : Bedeckt
-------------------------------------------------------------
-*/
+// weather icons 64x64
+#include "icons/bild_01d.h"
+#include "icons/bild_01n.h"
+#include "icons/bild_02d.h"
+#include "icons/bild_02n.h"
+#include "icons/bild_03d.h"
+#include "icons/bild_04d.h"
+#include "icons/bild_09d.h"
+#include "icons/bild_10d.h"
+#include "icons/bild_10n.h"
+#include "icons/bild_11d.h"
+#include "icons/bild_13d.h"
+#include "icons/bild_50d.h"
+#include "icons/bild_44.h"
 
 // ---------------------------------------------------------------------------------------------------
 // Display Höhe = 40 + 100 + 20 + 40 = 200 < 240
@@ -96,13 +70,12 @@ Beschreibung        : Bedeckt
 #define SW_02         15        // GPIO 15 - NodeMCU D8
 #define LED           4         // GPIO  4 - NodeMCU D2
 
-// Falls die Anzeige gedreht werden muss
+// to rotate the screen
 #define ROTATION_NO   0
 #define ROTATION_90   1
 #define ROTATION_180  2
 #define ROTATION_270  3
 
-// Prototypen
 void showLabel(void);
 void showVersion(void);
 void showFrame(void);

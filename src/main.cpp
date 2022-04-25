@@ -39,21 +39,6 @@
 #include "font.h"
 #include "TFT22-Uhr.h"
 
-// weather icons 64x64
-#include "icons/bild_01d.h"
-#include "icons/bild_01n.h"
-#include "icons/bild_02d.h"
-#include "icons/bild_02n.h"
-#include "icons/bild_03d.h"
-#include "icons/bild_04d.h"
-#include "icons/bild_09d.h"
-#include "icons/bild_10d.h"
-#include "icons/bild_10n.h"
-#include "icons/bild_11d.h"
-#include "icons/bild_13d.h"
-#include "icons/bild_50d.h"
-#include "icons/bild_44.h"
-
 // ---------------------------------------------------------------------------------------------------
 // config.h include the definition of API_KEY and CITY_KEY
 // #define API_KEY "1234567890abcdefghijklmnopqrst..."
@@ -69,9 +54,9 @@ time_t actualTime;
 struct tm timeinfo;
 
 TFT_eSPI tft = TFT_eSPI();
-TFT_eSprite actTimeToShow    = TFT_eSprite(&tft); 		// sprite object actTimeToShow
-TFT_eSprite actDateToShow    = TFT_eSprite(&tft);		// sprite to show actual date
-TFT_eSprite actTimeSecToShow = TFT_eSprite(&tft);		// sprite to show actual time and sec.
+TFT_eSprite actTimeToShow    = TFT_eSprite(&tft); 	// sprite object actTimeToShow
+TFT_eSprite actDateToShow    = TFT_eSprite(&tft);	// sprite to show actual date
+TFT_eSprite actTimeSecToShow = TFT_eSprite(&tft);	// sprite to show actual time and sec.
 
 // use openweather setup
 String ApiKey = API_KEY;
@@ -105,11 +90,11 @@ clOut led;
 clOut buzzer;
 
 // definition of switch 1
-stInput ParamSw01 = {SW_01, CHANGE, 40, 2000, irqSw01, POLARITY::POS};
+stInput ParamSw01 = {SW_01, CHANGE, 40, 2000, irqSw01, POLARITY::POS, false};
 clIn sw01; 			
 
 // definition of switch 2
-stInput ParamSw02 = {SW_02, CHANGE, 40, 2000, irqSw02, POLARITY::POS};
+stInput ParamSw02 = {SW_02, CHANGE, 40, 2000, irqSw02, POLARITY::POS, false};
 clIn sw02;
 
 char cVersion[] = {"02.00"};
@@ -210,8 +195,7 @@ void setup() {
 		tft.setTextColor(TFT_WHITE, TFT_BLACK);
 		tft.setCursor(0,30);
 		tft.println(".. Start Update");
-		tft.println(".. Update running");
-  	});
+	});
  	ArduinoOTA.onEnd([]() {  
 		tft.println(" ");
 		tft.println(".. Restart System");
@@ -221,7 +205,6 @@ void setup() {
 		static uint16_t u16FirstCall = true;
 		static uint16_t u16Count = 0;
 		if (u16FirstCall) {
-			tft.setCursor(0, 88); 
 			tft.print(".. Progress: ");
 			u16FirstCall = false;
 		} else {
@@ -322,15 +305,15 @@ void showWeather(void) {
 	else {showWeatherIcon(bild_44, xPosWeatherNow, yPosWeatherNow);}
 }
 
-void showWeatherIcon(const unsigned short* image, uint16_t xpos, uint16_t ypos) {
+void showWeatherIcon(const unsigned short* _image, uint16_t _xpos, uint16_t _ypos) {
 	uint16_t u16Width = 64;
 	uint16_t u16Higth = 64;
 	
-	tft.fillRect(xpos, ypos, u16Width, u16Higth, TFT_BLACK);	
-	tft.pushImage(xpos, ypos, 64, 64, image);
+	tft.fillRect(_xpos, _ypos, u16Width, u16Higth, TFT_BLACK);	
+	tft.pushImage(_xpos, _ypos, 64, 64, _image);
 }
 
-void showState(String strData) {
+void showState(String _strData) {
 	static String strOld = " ";
 
 	tft.setFreeFont(DefaultFont);
@@ -342,10 +325,10 @@ void showState(String strData) {
 
 	// draw new string
 	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-	tft.drawCentreString(strData, tftWidth / 2, yBottom + 9, 1);
+	tft.drawCentreString(_strData, tftWidth / 2, yBottom + 9, 1);
 	tft.setFreeFont(NULL);
 
-	strOld = strData;
+	strOld = _strData;
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -355,7 +338,7 @@ bool runMainMenue(void) {
 	return clWecken::enableWakeUpTime(&sw02);
 } 
 
-bool changeWakeUpTime(uint16_t u16Nr) {
+bool changeWakeUpTime(uint16_t _u16Nr) {
 	static uint16_t u16Status = 0;
 	static uint16_t u16StatusOld = 1;
 		
@@ -379,11 +362,11 @@ bool changeWakeUpTime(uint16_t u16Nr) {
 			}
 			break;
 		case 10:
-			if (u16Nr < MAX_WECKER) {	
-				if (Wecker[u16Nr].stelleWeckzeit()) {
-					Wecker[u16Nr].getWeckStunde().toCharArray(WeckerDaten[u16Nr].strStunden, 3);   
-					Wecker[u16Nr].getWeckMinute().toCharArray(WeckerDaten[u16Nr].strMinuten, 3);   
-					Wecker[u16Nr].getWeckTage().toCharArray(WeckerDaten[u16Nr].strTage, 2);   
+			if (_u16Nr < MAX_WECKER) {	
+				if (Wecker[_u16Nr].stelleWeckzeit()) {
+					Wecker[_u16Nr].getWeckStunde().toCharArray(WeckerDaten[_u16Nr].strStunden, 3);   
+					Wecker[_u16Nr].getWeckMinute().toCharArray(WeckerDaten[_u16Nr].strMinuten, 3);   
+					Wecker[_u16Nr].getWeckTage().toCharArray(WeckerDaten[_u16Nr].strTage, 2);   
 					saveWeckerConfig();
 					bResult = true;
 					u16Status = 0;
@@ -517,7 +500,7 @@ void showFrame(void) {
 	tft.drawRoundRect(1, yBottom, tftWidth - 1, hBottom, 10, TFT_BLUE);
 }
 
-void showDateAndTime(struct tm actTimeinfo) {
+void showDateAndTime(struct tm _actTimeinfo) {
 	uint16_t spriteHigth = 30;
 	
 	// date
@@ -537,7 +520,7 @@ void showDateAndTime(struct tm actTimeinfo) {
 	static String strDateOld = " ";
 	String strDate;
 
-	sprintf(str, "%02u:%02u:%02u", actTimeinfo.tm_hour, actTimeinfo.tm_min, actTimeinfo.tm_sec);
+	sprintf(str, "%02u:%02u:%02u", _actTimeinfo.tm_hour, _actTimeinfo.tm_min, _actTimeinfo.tm_sec);
 	strTime = String(str);
 	
 	// write actual time if time changed
@@ -555,10 +538,11 @@ void showDateAndTime(struct tm actTimeinfo) {
 		strTimeOld == strTime;
 	}
 
-	strDate = String(WeekDay[actTimeinfo.tm_wday]);
-	sprintf(str, "%02u.%02u.%4u", actTimeinfo.tm_mday, actTimeinfo.tm_mon + 1, 1900 + actTimeinfo.tm_year);
+	strDate = String(WeekDay[_actTimeinfo.tm_wday]);
+	sprintf(str, "%02u.%02u.%4u", _actTimeinfo.tm_mday, _actTimeinfo.tm_mon + 1, 1900 + _actTimeinfo.tm_year);
 	strDate += String(str);
-
+	
+	// write actual date if time changed
 	if (strDateOld != strDate) {
 		actDateToShow.setColorDepth(8);
 		actDateToShow.createSprite(spriteWidth1, spriteHigth);
@@ -653,7 +637,7 @@ void showWakeUpTime(void) {
 // Then we can write the new time string to the sprite object.
 // At last the sprite object is shown at the display.
 // -----------------------------------------------------------------------------------------------------
-void showTime(struct tm actTimeinfo) {
+void showTime(struct tm _actTimeinfo) {
 	static uint16_t u16State = 0;
 	static String strZeitOld = " ";
 
@@ -680,7 +664,7 @@ void showTime(struct tm actTimeinfo) {
 			u16State = 5;
 			break;
 		case 5: 	// check for a valide year > 2000 (1900 + 100) 
-			if (actTimeinfo.tm_year > 100) {
+			if (_actTimeinfo.tm_year > 100) {
 				actTimeToShow.fillSprite(TFT_BLACK);
 				u16State = 20;
 			} else {
@@ -692,13 +676,13 @@ void showTime(struct tm actTimeinfo) {
 			u16State = 5;
 			break;
 		case 10: 	// wait for a new minute (seccond == 0)
-			if (actTimeinfo.tm_sec == 0) {
+			if (_actTimeinfo.tm_sec == 0) {
 				u16State = 20;
 			}
 			break;
 		case 20: 	// show new time string
 			// build new time string
-			sprintf(str, "%u:%02u", actTimeinfo.tm_hour, actTimeinfo.tm_min);
+			sprintf(str, "%u:%02u", _actTimeinfo.tm_hour, _actTimeinfo.tm_min);
 			strZeit = String(str);
 			
 			actTimeToShow.setTextSize(1);	
@@ -719,7 +703,7 @@ void showTime(struct tm actTimeinfo) {
 			u16State = 30;
 			break;
 		case 30: 	// wait for seccond != 0
-			if (actTimeinfo.tm_sec != 0) {
+			if (_actTimeinfo.tm_sec != 0) {
 				u16State = 10;
 			}
 			break;
@@ -750,7 +734,7 @@ IRAM_ATTR void irqTimer0(void) {
 
 	static uint32_t weatherTimer = 0;
 
-	if (++weatherTimer >= 1800) {
+	if (++weatherTimer >= 60 * 15) {
 		weatherTimer = 0;
 		bGetWeather = true;
 	}
@@ -805,15 +789,15 @@ void initNetwork(void) {
 	tft.setCursor(0, 30);
 	tft.setFreeFont(DefaultFont);
 	tft.setTextSize(1);	
-	tft.drawString("WLan starten", 10, 10);
+	tft.drawString(".. start WLan", 10, 10);
 
 	if (wm.autoConnect("ESP_TFT_UHR")) {
-		tft.drawString(".. WLan OK", 10, 40);
+		tft.drawString(".. WLan connected", 10, 40);
 		String strText = String(".. ") + WiFi.SSID() + String(" - ") + WiFi.localIP().toString();
 		tft.drawString(strText, 10, 70);
 		delay(4000);
 	} else {
-		tft.drawString(".. WLan Fehler !!", 10, 40);
+		tft.drawString(".. WLan error !!", 10, 40);
 		tft.drawString(".. ESP Reset !!", 10, 70);
 		delay(5000);
 		while (true) {;}
@@ -821,13 +805,11 @@ void initNetwork(void) {
 	}
 }
 
-void wifiCallback(WiFiManager *myWiFiManager) {
-	tft.print(".. Konfig. Mode aktiv");
-	tft.print("\n.. ");
-	tft.print(WiFi.softAPIP());
-	tft.print("\n.. ");
-	tft.print(myWiFiManager->getConfigPortalSSID());
-	tft.print("\n");
+void wifiCallback(WiFiManager *_myWiFiManager) {
+	tft.println(".. Konfig. Mode aktiv");
+	tft.print("..");
+	tft.println(WiFi.softAPIP());
+	tft.println(String("..") + _myWiFiManager->getConfigPortalSSID());
 }
 
 // -----------------------------------------------------------------------------------
@@ -1014,12 +996,12 @@ String getWeatherForcast(void) {
 	return strResult;
 }
 
-void decodeWeatherForcast(String WetterDaten) {
+void decodeWeatherForcast(String _WetterDaten) {
 	uint16_t u16Count = 0;
 	time_t ForcastTime;
 	char strData[30];
 	StaticJsonDocument<2500> doc; 	// make JSON doc
-	DeserializationError error = deserializeJson(doc, WetterDaten);
+	DeserializationError error = deserializeJson(doc, _WetterDaten);
 
 	Serial.println(TraceTime() + "decodeWeatherForcast");
 
@@ -1081,10 +1063,10 @@ void decodeWeatherForcast(String WetterDaten) {
 	Serial.println(doc.memoryUsage());
 }
 
-String decodeCurrentWeather(String WetterDaten) {
+String decodeCurrentWeather(String _WetterDaten) {
 	StaticJsonDocument<2000> doc; 	// make JSON doc
 	Serial.println(TraceTime() + "decodeCurrentWeather");
-	DeserializationError error = deserializeJson(doc, WetterDaten);
+	DeserializationError error = deserializeJson(doc, _WetterDaten);
 
 	if (error) {
 		Serial.print(TraceTime() + "deserializeJson failed - ");
@@ -1134,7 +1116,7 @@ String decodeCurrentWeather(String WetterDaten) {
 }
 
 // -----------------------------------------------------------------------------------
-// callback Schalter 1 und 2 - nur als Beispiel
+// interrupt switch 1 and 2 - only for test
 // -----------------------------------------------------------------------------------
 ICACHE_RAM_ATTR void irqSw01(void) {
 	if (sw01.Status()) {
@@ -1150,7 +1132,7 @@ ICACHE_RAM_ATTR void irqSw02(void) {
 }
 
 // -----------------------------------------------------------------------------------
-// callback Schalter 1 und 2
+// callback switch 1 and 2
 // -----------------------------------------------------------------------------------
 String TraceTime(void) {
 	char cTimeStampStr[60];
