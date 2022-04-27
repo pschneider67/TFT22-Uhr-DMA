@@ -399,7 +399,7 @@ void clWecken::Check(void) {
                 }
                 break;
             case 20:
-                if (pclWecken[u16sCount]->u16Count >= 100) {
+                if (pclWecken[u16sCount]->u16Count >= 300) {
                     pclWecken[u16sCount]->u16Status = 30;
                 } else if (millis() > (pclWecken[u16sCount]->u32Delay + 500)) {
                     pclWecken[u16sCount]->u16Count++;

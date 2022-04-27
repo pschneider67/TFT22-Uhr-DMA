@@ -68,6 +68,7 @@ const char *WeekDay[7] = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr. ", "Sa. "
 
 const GFXfont *DefaultFont = &Arimo_Regular_24;
 const GFXfont *TimeFont = &Arimo_Regular_95;
+const GFXfont *IconFont = &Arimo_Regular_12;
 
 const uint16_t hSpace = 8;							 // space
 const uint16_t yTop = 0;							 // start upper area
@@ -306,11 +307,25 @@ void showWeather(void) {
 }
 
 void showWeatherIcon(const unsigned short* _image, uint16_t _xpos, uint16_t _ypos) {
+	static String strTimeOld = " ";
+	String strTime;
+	char str[10];
 	uint16_t u16Width = 64;
 	uint16_t u16Higth = 64;
 	
 	tft.fillRect(_xpos, _ypos, u16Width, u16Higth, TFT_BLACK);	
 	tft.pushImage(_xpos, _ypos, 64, 64, _image);
+	
+	tft.setFreeFont(IconFont);
+	tft.setTextColor(TFT_BLACK);
+	tft.drawCentreString(strTimeOld, _xpos + 32, _ypos + 64 + 2, 1);
+
+	sprintf(str, "%02u:%02u", timeinfo.tm_hour, timeinfo.tm_min);
+	strTime = String(str);
+	tft.setTextColor(TFT_YELLOW);
+	tft.drawCentreString(strTime, _xpos + 32, _ypos + 64 + 2, 1);
+
+	strTimeOld = strTime;
 }
 
 void showState(String _strData) {
@@ -666,6 +681,7 @@ void showTime(struct tm _actTimeinfo) {
 		case 5: 	// check for a valide year > 2000 (1900 + 100) 
 			if (_actTimeinfo.tm_year > 100) {
 				actTimeToShow.fillSprite(TFT_BLACK);
+				bGetWeather = true;
 				u16State = 20;
 			} else {
 				u16State = 6;
