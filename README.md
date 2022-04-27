@@ -1,4 +1,6 @@
 # TFT22-Uhr-DMA
+
+![Bild vom Wecker](https://github.com/pschneider67/TFT22-Uhr-DMA/blob/master/Wecker.jpg)
 Die Software läuft auf der Platine TFT22-Uhr. Die KiCad Daten der Platine sind im Repository TFT-Uhr.
 
 Kurze Beschreibung des Weckers
