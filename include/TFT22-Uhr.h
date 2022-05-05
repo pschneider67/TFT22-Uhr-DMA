@@ -80,10 +80,11 @@ void showLabel(void);
 void showVersion(void);
 void showFrame(void);
 void showDateAndTime(struct tm);
-void showTime(struct tm);
-void showWakeUpTime(void);
+void showTime(struct tm, bool);
+void showWakeUpTime(bool);
 void showState(String strData); 
 void showWeatherIcon(const unsigned short*, uint16_t, uint16_t);
+void showWeather(String, uint16_t, uint16_t); 
 
 bool enableWakeUpTime(clIn *);
 void tftBrigthnees(void);
@@ -100,11 +101,6 @@ void saveConfigCallback(void);
 void saveWeckerConfig(void);
 void showWeatherString(void);
 
-String getActualWeather(void);
-String decodeCurrentWeather(String WetterDaten);
-String getWeatherForcast(void);
-void decodeWeatherForcast(String WetterDaten);
-
 bool runMainMenue(void);
 bool changeWakeUpTime(uint16_t);  
 bool runWakeUpTime_1(void);
@@ -116,5 +112,10 @@ bool runWeatherForcast(void);
 void irqTimer0(void);
 void irqSw01(void);
 void irqSw02(void);
+
+String getActualWeather(void);
+String decodeCurrentWeather(String WetterDaten);
+String getWeatherForcast(void);
+void decodeWeatherForcast(String WetterDaten);
 
 String TraceTime (void);

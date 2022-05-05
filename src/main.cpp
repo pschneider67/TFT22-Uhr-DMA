@@ -22,7 +22,7 @@
 // Switch 2   -  D8   - GPIO-15
 // LED        -  D2   - GPIO-04
 // -----------------------------------------------------------------------------------
-// to convert fonts to *.h : http://oleddisplay.squix.ch/#/home
+// to convert fonts  to *.h : http://oleddisplay.squix.ch/#/home
 // to convert images to *.h : http://rinkydinkelectronics.com/t_imageconverter565.php?msclkid=b9c2d4cdbd8811ec8ed10cdb25a780d0
 // -----------------------------------------------------------------------------------
 #include "Arduino.h"
@@ -84,8 +84,8 @@ const uint16_t yPosWeatherNow = yMiddle + 5;
 uint16_t tftWidth;
 uint16_t tftHeight;
 
-WiFiManager wm;
-WiFiClient client;
+WiFiManager wifiManager;
+WiFiClient wifiClient;
 
 clOut led;
 clOut buzzer;
@@ -128,11 +128,11 @@ weck_daten_t WeckerDaten[MAX_WECKER] = {
 bool shouldSaveConfig = false;
 
 menue_t hmMenue[6] = { 
-//   function                 menue string             last item
+//   function                   menue string             last item
 	{runMainMenue,    	String("Uhrzeit / Weckzeiten"),  false},
 	{runWakeUpTime_1, 	String("Weckzeit 1 einstellen"), false},
 	{runWakeUpTime_2, 	String("Weckzeit 2 einstellen"), false},
-	{runWeatherForcast, String("Wettervorhersage"),      false},
+	{runWeatherForcast, String("Wettervorschau"),        false},
 	{runState,        	String("Statusanzeige"),         false},
 	{runDeleteFile,   	String("Delete Konfiguration"),   true}
 };
@@ -152,13 +152,14 @@ float humidityToday = 0.0;
 float pressureToday = 0.0;
 
 // define forcast data from JSON-tree 
-char *weatherForcast[16];
-float tempDayForcast[16];
-float tempNigthForcast[16];
-float tempMinForcast[16];
-float tempMaxForcast[16];
-float humidityForcast[16];
-float pressureForcast[16];
+float tempDayForcast[5];
+float tempNigthForcast[5];
+float tempMinForcast[5];
+float tempMaxForcast[5];
+float humidityForcast[5];
+float pressureForcast[5];
+char cIcon[5][10];
+char cDay[5][5];
 
 bool bGetWeather = true;
 
@@ -244,7 +245,7 @@ void loop(void) {
 
 	showDateAndTime(timeinfo); 				
 	tftBrigthnees();
-	showWakeUpTime();
+	showWakeUpTime(false);
 	
 	HMenue.Verwaltung();					// run menue
 	
@@ -263,19 +264,17 @@ void loop(void) {
 		case 2:
 		case 4:
 		case 5:
-			showTime(timeinfo);
+			showTime(timeinfo, false);
 			if (bGetWeather) {
 				getActualWeather();	
-				//getWeatherForcast();
 				bGetWeather = false;
 			}	
+			break;
+		case 3:
 			break;
 	}		   	
 }
 
-// ---------------------------------------------------------------------------------------------------
-// show state line
-// ---------------------------------------------------------------------------------------------------
 void showLabel(void) {
 	String strText = WiFi.SSID() + String(" - ") + WiFi.localIP().toString();
 	showState(strText);
@@ -286,24 +285,24 @@ void showVersion(void) {
 	showState(strText);
 }
 
-void showWeather(void) {
-	if      (strIcon == String("01d")) {showWeatherIcon(bild_01d, xPosWeatherNow, yPosWeatherNow);}
-	else if (strIcon == String("01n")) {showWeatherIcon(bild_01n, xPosWeatherNow, yPosWeatherNow);}
-	else if (strIcon == String("02d")) {showWeatherIcon(bild_02d, xPosWeatherNow, yPosWeatherNow);}
-	else if (strIcon == String("02n")) {showWeatherIcon(bild_02n, xPosWeatherNow, yPosWeatherNow);}
-	else if (strIcon == String("03d")) {showWeatherIcon(bild_03d, xPosWeatherNow, yPosWeatherNow);}
-	else if (strIcon == String("03n")) {showWeatherIcon(bild_03d, xPosWeatherNow, yPosWeatherNow);}
-	else if (strIcon == String("04d")) {showWeatherIcon(bild_04d, xPosWeatherNow, yPosWeatherNow);}
-	else if (strIcon == String("04n")) {showWeatherIcon(bild_04d, xPosWeatherNow, yPosWeatherNow);}
-	else if (strIcon == String("09d")) {showWeatherIcon(bild_09d, xPosWeatherNow, yPosWeatherNow);}
-	else if (strIcon == String("09n")) {showWeatherIcon(bild_09d, xPosWeatherNow, yPosWeatherNow);}
-	else if (strIcon == String("10d")) {showWeatherIcon(bild_10d, xPosWeatherNow, yPosWeatherNow);}
-	else if (strIcon == String("10n")) {showWeatherIcon(bild_10n, xPosWeatherNow, yPosWeatherNow);}
-	else if (strIcon == String("13d")) {showWeatherIcon(bild_13d, xPosWeatherNow, yPosWeatherNow);}
-	else if (strIcon == String("13n")) {showWeatherIcon(bild_13d, xPosWeatherNow, yPosWeatherNow);}
-	else if (strIcon == String("50d")) {showWeatherIcon(bild_50d, xPosWeatherNow, yPosWeatherNow);}
-	else if (strIcon == String("50n")) {showWeatherIcon(bild_50d, xPosWeatherNow, yPosWeatherNow);}
-	else {showWeatherIcon(bild_44, xPosWeatherNow, yPosWeatherNow);}
+void showWeather(String _strIcon, uint16_t _xpos, uint16_t _ypos) {
+	if      (_strIcon == String("01d")) {showWeatherIcon(bild_01d, _xpos, _ypos);}
+	else if (_strIcon == String("01n")) {showWeatherIcon(bild_01n, _xpos, _ypos);}
+	else if (_strIcon == String("02d")) {showWeatherIcon(bild_02d, _xpos, _ypos);}
+	else if (_strIcon == String("02n")) {showWeatherIcon(bild_02n, _xpos, _ypos);}
+	else if (_strIcon == String("03d")) {showWeatherIcon(bild_03d, _xpos, _ypos);}
+	else if (_strIcon == String("03n")) {showWeatherIcon(bild_03d, _xpos, _ypos);}
+	else if (_strIcon == String("04d")) {showWeatherIcon(bild_04d, _xpos, _ypos);}
+	else if (_strIcon == String("04n")) {showWeatherIcon(bild_04d, _xpos, _ypos);}
+	else if (_strIcon == String("09d")) {showWeatherIcon(bild_09d, _xpos, _ypos);}
+	else if (_strIcon == String("09n")) {showWeatherIcon(bild_09d, _xpos, _ypos);}
+	else if (_strIcon == String("10d")) {showWeatherIcon(bild_10d, _xpos, _ypos);}
+	else if (_strIcon == String("10n")) {showWeatherIcon(bild_10n, _xpos, _ypos);}
+	else if (_strIcon == String("13d")) {showWeatherIcon(bild_13d, _xpos, _ypos);}
+	else if (_strIcon == String("13n")) {showWeatherIcon(bild_13d, _xpos, _ypos);}
+	else if (_strIcon == String("50d")) {showWeatherIcon(bild_50d, _xpos, _ypos);}
+	else if (_strIcon == String("50n")) {showWeatherIcon(bild_50d, _xpos, _ypos);}
+	else {showWeatherIcon(bild_44, _xpos, _ypos);}
 }
 
 void showWeatherIcon(const unsigned short* _image, uint16_t _xpos, uint16_t _ypos) {
@@ -316,14 +315,14 @@ void showWeatherIcon(const unsigned short* _image, uint16_t _xpos, uint16_t _ypo
 	tft.fillRect(_xpos, _ypos, u16Width, u16Higth, TFT_BLACK);	
 	tft.pushImage(_xpos, _ypos, 64, 64, _image);
 	
-	tft.setFreeFont(IconFont);
-	tft.setTextColor(TFT_BLACK);
-	tft.drawCentreString(strTimeOld, _xpos + 32, _ypos + 64 + 2, 1);
+	//tft.setFreeFont(IconFont);
+	//tft.setTextColor(TFT_BLACK);
+	//tft.drawCentreString(strTimeOld, _xpos + 32, _ypos + 64 + 2, 1);
 
-	sprintf(str, "%02u:%02u", timeinfo.tm_hour, timeinfo.tm_min);
-	strTime = String(str);
-	tft.setTextColor(TFT_YELLOW);
-	tft.drawCentreString(strTime, _xpos + 32, _ypos + 64 + 2, 1);
+	//sprintf(str, "%02u:%02u", timeinfo.tm_hour, timeinfo.tm_min);
+	//strTime = String(str);
+	//tft.setTextColor(TFT_YELLOW);
+	//tft.drawCentreString(strTime, _xpos + 32, _ypos + 64 + 2, 1);
 
 	strTimeOld = strTime;
 }
@@ -493,10 +492,26 @@ bool runWeatherForcast (void) {
 			break;
 		case 10:
 			getWeatherForcast();
+			showState("Wettervorschau");
 			u16Status = 20;
 			break;
-		case 20:
+		case 20:	
 			if (!sw02.Status()) {
+				u16Status = 30;
+			}
+			break;
+		case 30:
+			if (sw02.Status()) {
+				u16Status = 40;
+			}
+			break;
+		case 40:
+			if (!sw02.Status()) {
+				tft.fillRect(5, yMiddle + 5, tftWidth - 10, hMiddle - 10, TFT_BLACK);
+				bGetWeather = true;
+				showWeatherIcon(bild_44, xPosWeatherNow, yPosWeatherNow);
+				showWakeUpTime(true);
+				showTime(timeinfo, true);
 				u16Status = 0;
 			}
 			break;
@@ -573,7 +588,7 @@ void showDateAndTime(struct tm _actTimeinfo) {
 	}
 }
 
-void showWakeUpTime(void) {
+void showWakeUpTime(bool bForce) {
 	static String oldString1 = " ";
 	static String oldString2 = " ";
 
@@ -596,7 +611,7 @@ void showWakeUpTime(void) {
 	tft.setTextSize(1);	
 	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
 	
-	if (oldString1 != Str1) {
+	if ((oldString1 != Str1) || bForce) {
 		Serial.println(strName1 + strH1 + String(":") + strM1 + String(" : ") + strD1);
 		tft.drawString(strName1, 10, 140);
 		if (strH1 != "  ") {
@@ -619,7 +634,7 @@ void showWakeUpTime(void) {
 		oldString1 = Str1;
 	}
 
-	if (oldString2 != Str2) {
+	if ((oldString2 != Str2) || bForce) {
 		Serial.println(strName2 + strH2 + String(":") + strM2 + String(" : ") + strD2);
 		tft.drawString(strName2, 10, 165);
 		if (strH2 != "  ") {
@@ -652,7 +667,7 @@ void showWakeUpTime(void) {
 // Then we can write the new time string to the sprite object.
 // At last the sprite object is shown at the display.
 // -----------------------------------------------------------------------------------------------------
-void showTime(struct tm _actTimeinfo) {
+void showTime(struct tm _actTimeinfo, bool bForce) {
 	static uint16_t u16State = 0;
 	static String strZeitOld = " ";
 
@@ -692,7 +707,7 @@ void showTime(struct tm _actTimeinfo) {
 			u16State = 5;
 			break;
 		case 10: 	// wait for a new minute (seccond == 0)
-			if (_actTimeinfo.tm_sec == 0) {
+			if ((_actTimeinfo.tm_sec == 0) || bForce) {
 				u16State = 20;
 			}
 			break;
@@ -799,15 +814,15 @@ void initDisplay(void) {
 // init network
 // -----------------------------------------------------------------------------------
 void initNetwork(void) {
-	wm.setAPCallback(wifiCallback);
-	wm.setSaveConfigCallback(saveConfigCallback);
+	wifiManager.setAPCallback(wifiCallback);
+	wifiManager.setSaveConfigCallback(saveConfigCallback);
 
 	tft.setCursor(0, 30);
 	tft.setFreeFont(DefaultFont);
 	tft.setTextSize(1);	
 	tft.drawString(".. start WLan", 10, 10);
 
-	if (wm.autoConnect("ESP_TFT_UHR")) {
+	if (wifiManager.autoConnect("ESP_TFT_UHR")) {
 		tft.drawString(".. WLan connected", 10, 40);
 		String strText = String(".. ") + WiFi.SSID() + String(" - ") + WiFi.localIP().toString();
 		tft.drawString(strText, 10, 70);
@@ -952,20 +967,6 @@ bool initTime(void) {
 }
 
 // -----------------------------------------------------------------------------------
-// init timer irq
-// -----------------------------------------------------------------------------------
-void initIrq(void) {
-	Serial.println(TraceTime() + "Konfigration der Interrupts");
-	noInterrupts(); // disable all interrupts 
-
-	timer0_isr_init();
-	timer0_attachInterrupt(irqTimer0);
-	timer0_write(ESP.getCycleCount() + 80000000L); // 80MHz == 1s
-
-	interrupts(); 	// enable all interrups
-}
-
-// -----------------------------------------------------------------------------------
 // get weather data from internet - https:\\openweathermap.org
 // -----------------------------------------------------------------------------------
 String getActualWeather(void) {
@@ -975,16 +976,16 @@ String getActualWeather(void) {
 	Serial.println(TraceTime() + "getActualWeather");
 		
 	strUrl = "GET /data/2.5/weather?id=" + CityId + "&appid=" + ApiKey + "&lang=de&mode=json&units=metric";
-	if (client.connect(Server, 80)) {
-		client.println(strUrl);
-		strResult = client.readString();
+	if (wifiClient.connect(Server, 80)) {
+		wifiClient.println(strUrl);
+		strResult = wifiClient.readString();
 	}
 
 	Serial.println(TraceTime() + strResult);
 
 	if (strResult != "no data") {
 		strIcon = decodeCurrentWeather(strResult);
-		showWeather();
+		showWeather(strIcon, 6, yMiddle + 5);
 	}
 
 	return strResult;
@@ -998,9 +999,9 @@ String getWeatherForcast(void) {
 
 	strUrl = "GET /data/2.5/forecast/daily?id=" + CityId + "&appid=" + ApiKey + "&cnt=4&lang=de&mode=json&units=metric";
 
-	if (client.connect(Server, 80)) {
-		client.println(strUrl);
-		strResult = client.readString();
+	if (wifiClient.connect(Server, 80)) {
+		wifiClient.println(strUrl);
+		strResult = wifiClient.readString();
 	}
 
 	Serial.println(TraceTime() + strResult);
@@ -1048,6 +1049,11 @@ void decodeWeatherForcast(String _WetterDaten) {
 		const char *weather = doc["list"][i]["weather"][0]["description"];
 		const char *icon    = doc["list"][i]["weather"][0]["icon"];
 
+		strcpy(cIcon[i], icon);
+		strcpy(cDay[i], WeekDay[weekday(ForcastTime) - 1]);
+		
+		Serial.println(strData);
+
 		cityName = (char *)city;
 		weatherTaday = (char *)weather;
 
@@ -1071,8 +1077,22 @@ void decodeWeatherForcast(String _WetterDaten) {
 		Serial.print("Wetter       : ");
 		Serial.println(weather);
 		Serial.print("Icon Name    : ");
-		Serial.println(icon);
+		Serial.println(cIcon[i]);
 		Serial.println("----------------------------------------------");
+	}
+
+	// clear area
+	tft.fillRect(5, yMiddle + 5, tftWidth - 10, hMiddle - 10, TFT_BLACK);
+	tft.setFreeFont(DefaultFont);
+	tft.setTextSize(1);	
+	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+
+	for (int i=0; i<u16Count; i++) {
+		yield();
+		tft.setFreeFont(DefaultFont);
+		tft.drawCentreString(String(cDay[i]), 7 + ((i * 80) + 32), yMiddle + 8, 1);
+		showWeather(cIcon[i], 7 + (i * 80), yMiddle + 30);
+		tft.drawCentreString(String(tempDayForcast[i], 1), 7 + ((i * 80) + 32), yMiddle + 8 + 64 + 24, 1);
 	}
 
 	Serial.print("memory used : ");
@@ -1129,6 +1149,20 @@ String decodeCurrentWeather(String _WetterDaten) {
 	Serial.println(doc.memoryUsage());
 
 	return icon;
+}
+
+// -----------------------------------------------------------------------------------
+// init timer irq
+// -----------------------------------------------------------------------------------
+void initIrq(void) {
+	Serial.println(TraceTime() + "Konfigration der Interrupts");
+	noInterrupts(); // disable all interrupts 
+
+	timer0_isr_init();
+	timer0_attachInterrupt(irqTimer0);
+	timer0_write(ESP.getCycleCount() + 80000000L); // 80MHz == 1s
+
+	interrupts(); 	// enable all interrups
 }
 
 // -----------------------------------------------------------------------------------
