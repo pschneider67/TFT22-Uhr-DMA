@@ -143,9 +143,7 @@ clMenue HMenue(&sw01, hmMenue, showState);
 int pwmValue;
 
 // define data from JSON-tree 
-const char* pcWeatherNow;
-const char* pcIconNow;
-const char* pcCityNameToday;
+char pcIconNow[5];
 float tempToday = 0.0;
 float tempMinToday = 0.0;
 float tempMaxToday = 0.0;
@@ -160,11 +158,6 @@ float tempMinForcast[FORECAST];
 float tempMaxForcast[FORECAST];
 float humidityForcast[FORECAST];
 float pressureForcast[FORECAST];
-const char* pcIcon[FORECAST];
-char  cDay[FORECAST][5];
-const char* pcWeatherNowForecast[FORECAST];
-const char* pdIconForecast[FORECAST];
-const char* pcCityNameForcast;
 
 bool bGetWeather = false;
 
@@ -1007,7 +1000,11 @@ void getActualWeather(void) {
 }
 
 void decodeCurrentWeather(String _WetterDaten) {
-	StaticJsonDocument<1000> jsonWeatherToday;
+	const char* pcIcon;
+	const char* pcWeatherNow;
+	const char* pcCityNameToday;
+
+	DynamicJsonDocument jsonWeatherToday(900);
 
 	Serial.println(TraceTime() + "decodeCurrentWeather");
 	Serial.println(TraceTime() + _WetterDaten);
@@ -1027,7 +1024,9 @@ void decodeCurrentWeather(String _WetterDaten) {
 
 		pcCityNameToday = jsonWeatherToday["name"];
 		pcWeatherNow = jsonWeatherToday["weather"][0]["description"];
-		pcIconNow    = jsonWeatherToday["weather"][0]["icon"];
+		pcIcon       = jsonWeatherToday["weather"][0]["icon"];
+
+		sprintf(pcIconNow, pcIcon, sizeof(pcIconNow));
 
 		Serial.println("----------------------------------------------");
 		Serial.print("Stadt        : ");
@@ -1065,10 +1064,16 @@ void getWeatherForcast(void) {
 }
 
 void decodeWeatherForcast(String _WetterDaten) {
-	StaticJsonDocument<2500> jsonWeatherForecast; 
+	DynamicJsonDocument jsonWeatherForecast(2500); 
 	uint16_t u16Count = 0;
 	time_t ForcastTime;
-	char strData[40];
+	char strData[30];
+	char cDay[FORECAST][5];
+
+	const char* pcIcon[FORECAST];
+	const char* pcWeatherNowForecast[FORECAST];
+	const char* pdIconForecast[FORECAST];
+	const char* pcCityNameForcast;
 
 	Serial.println(TraceTime() + "decodeCurrentWeather");
 	Serial.println(TraceTime() + _WetterDaten);
