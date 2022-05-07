@@ -94,6 +94,7 @@ void initDisplay(void);
 void initNetwork(void);
 
 void wifiCallback(WiFiManager *myWiFiManager);
+String getJsonDataFromWeb (String, String);
 bool initTime(void);
 void initIrq(void);
 void initFs(void);
@@ -113,9 +114,9 @@ void irqTimer0(void);
 void irqSw01(void);
 void irqSw02(void);
 
-String getActualWeather(void);
-String decodeCurrentWeather(String WetterDaten);
-String getWeatherForcast(void);
+void getActualWeather(void);
+void decodeCurrentWeather(String WetterDaten);
+void getWeatherForcast(void);
 void decodeWeatherForcast(String WetterDaten);
 
 String TraceTime (void);

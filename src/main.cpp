@@ -64,7 +64,7 @@ String CityId = CITY_KEY;
 const char Server[] = "api.openweathermap.org";
 String strIcon;
 
-const char *WeekDay[7] = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr. ", "Sa. "};
+const char WeekDay[7][5] = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr. ", "Sa. "};
 
 const GFXfont *DefaultFont = &Arimo_Regular_24;
 const GFXfont *TimeFont = &Arimo_Regular_95;
@@ -98,7 +98,7 @@ clIn sw01;
 stInput ParamSw02 = {SW_02, CHANGE, 40, 2000, irqSw02, POLARITY::POS, false};
 clIn sw02;
 
-char cVersion[] = {"02.00"};
+char cVersion[] = "02.00";
 char cDatum[]   = __DATE__;
 
 // definition of wake up times
@@ -143,25 +143,30 @@ clMenue HMenue(&sw01, hmMenue, showState);
 int pwmValue;
 
 // define data from JSON-tree 
-char *cityName;
-char *weatherTaday;
+const char* pcWeatherNow;
+const char* pcIconNow;
+const char* pcCityNameToday;
 float tempToday = 0.0;
 float tempMinToday = 0.0;
 float tempMaxToday = 0.0;
 float humidityToday = 0.0;
 float pressureToday = 0.0;
 
-// define forcast data from JSON-tree 
-float tempDayForcast[5];
-float tempNigthForcast[5];
-float tempMinForcast[5];
-float tempMaxForcast[5];
-float humidityForcast[5];
-float pressureForcast[5];
-char cIcon[5][10];
-char cDay[5][5];
+// define forcast data from JSON-tree
+#define FORECAST	4 
+float tempDayForcast[FORECAST];
+float tempNigthForcast[FORECAST];
+float tempMinForcast[FORECAST];
+float tempMaxForcast[FORECAST];
+float humidityForcast[FORECAST];
+float pressureForcast[FORECAST];
+const char* pcIcon[FORECAST];
+char  cDay[FORECAST][5];
+const char* pcWeatherNowForecast[FORECAST];
+const char* pdIconForecast[FORECAST];
+const char* pcCityNameForcast;
 
-bool bGetWeather = true;
+bool bGetWeather = false;
 
 // ---------------------------------------------------------------------------------------------------
 // setup
@@ -267,6 +272,7 @@ void loop(void) {
 			showTime(timeinfo, false);
 			if (bGetWeather) {
 				getActualWeather();	
+				showWeather(pcIconNow, xPosWeatherNow, yPosWeatherNow);
 				bGetWeather = false;
 			}	
 			break;
@@ -308,7 +314,6 @@ void showWeather(String _strIcon, uint16_t _xpos, uint16_t _ypos) {
 void showWeatherIcon(const unsigned short* _image, uint16_t _xpos, uint16_t _ypos) {
 	static String strTimeOld = " ";
 	String strTime;
-	char str[10];
 	uint16_t u16Width = 64;
 	uint16_t u16Higth = 64;
 	
@@ -479,8 +484,9 @@ bool runDeleteFile(void) {
 
 bool runWeatherForcast (void) {
 	static uint16_t u16Status = 0;
+	static uint32_t u32Timer = 0;
 	bool bResult = false;
-
+	
 	switch (u16Status) {
 		case 0:
 			bResult = true;
@@ -497,11 +503,14 @@ bool runWeatherForcast (void) {
 			break;
 		case 20:	
 			if (!sw02.Status()) {
+				u32Timer = millis();
 				u16Status = 30;
 			}
 			break;
 		case 30:
 			if (sw02.Status()) {
+				u16Status = 40;
+			} else if (millis() > (u32Timer + (15 * 60000))) {
 				u16Status = 40;
 			}
 			break;
@@ -509,7 +518,7 @@ bool runWeatherForcast (void) {
 			if (!sw02.Status()) {
 				tft.fillRect(5, yMiddle + 5, tftWidth - 10, hMiddle - 10, TFT_BLACK);
 				bGetWeather = true;
-				showWeatherIcon(bild_44, xPosWeatherNow, yPosWeatherNow);
+				showWeather(pcIconNow, xPosWeatherNow, yPosWeatherNow);
 				showWakeUpTime(true);
 				showTime(timeinfo, true);
 				u16Status = 0;
@@ -966,189 +975,180 @@ bool initTime(void) {
 	return result;
 }
 
+String getJsonDataFromWeb (String _Server, String _Url) {
+	uint16_t u16Tries = 0;
+
+	while (!wifiClient.connect(_Server, 80)) {
+		Serial.println(TraceTime() + String("connection error"));
+		u16Tries++;
+		delay(1000);
+		Serial.println(TraceTime() + String("try number ") + u16Tries);
+		if (u16Tries > 5) {
+			Serial.println(TraceTime() + String("connection error"));
+			return String("**** error, no api feedback");
+		}
+	}
+
+	Serial.println(TraceTime() + String("connect to ") + Server);
+	wifiClient.println(_Url);
+	return wifiClient.readString();
+}
+
 // -----------------------------------------------------------------------------------
 // get weather data from internet - https:\\openweathermap.org
 // -----------------------------------------------------------------------------------
-String getActualWeather(void) {
-	String strResult = "no data";
-	String strUrl;
+void getActualWeather(void) {
+	String strUrl = "GET /data/2.5/weather?id=" + CityId + "&appid=" + ApiKey + "&lang=de&mode=json&units=metric";
 	
 	Serial.println(TraceTime() + "getActualWeather");
+	Serial.println(TraceTime() + strUrl);
 		
-	strUrl = "GET /data/2.5/weather?id=" + CityId + "&appid=" + ApiKey + "&lang=de&mode=json&units=metric";
-	if (wifiClient.connect(Server, 80)) {
-		wifiClient.println(strUrl);
-		strResult = wifiClient.readString();
-	}
-
-	Serial.println(TraceTime() + strResult);
-
-	if (strResult != "no data") {
-		strIcon = decodeCurrentWeather(strResult);
-		showWeather(strIcon, 6, yMiddle + 5);
-	}
-
-	return strResult;
+	decodeCurrentWeather(getJsonDataFromWeb(Server, strUrl));
 }
 
-String getWeatherForcast(void) {
-	String strResult = "no data";
-	String strUrl;
+void decodeCurrentWeather(String _WetterDaten) {
+	StaticJsonDocument<1000> jsonWeatherToday;
+
+	Serial.println(TraceTime() + "decodeCurrentWeather");
+	Serial.println(TraceTime() + _WetterDaten);
+
+	DeserializationError error = deserializeJson(jsonWeatherToday, _WetterDaten);
+
+	if (error) {
+		Serial.print(TraceTime() + "deserializeJson failed - ");
+		Serial.println(error.c_str());
+	} else {
+		// get data from JSON-tree 
+		tempToday     = jsonWeatherToday["main"]["temp"];
+		tempMinToday  = jsonWeatherToday["main"]["temp_min"];
+		tempMaxToday  = jsonWeatherToday["main"]["temp_max"];
+		humidityToday = jsonWeatherToday["main"]["humidity"];
+		pressureToday = jsonWeatherToday["main"]["pressure"];
+
+		pcCityNameToday = jsonWeatherToday["name"];
+		pcWeatherNow = jsonWeatherToday["weather"][0]["description"];
+		pcIconNow    = jsonWeatherToday["weather"][0]["icon"];
+
+		Serial.println("----------------------------------------------");
+		Serial.print("Stadt        : ");
+		Serial.println(pcCityNameToday);
+		Serial.print("Aktuelle Temp: ");
+		Serial.print(tempToday);
+		Serial.println("°C");
+		Serial.print("Temp (Min)   : ");
+		Serial.print(tempMinToday);
+		Serial.println("°C");
+		Serial.print("Temp (Max)   : ");
+		Serial.print(tempMaxToday);
+		Serial.println("°C");
+		Serial.print("Feuchtigkeit : ");
+		Serial.print(humidityToday);
+		Serial.println("%");
+		Serial.print("Wetter       : ");
+		Serial.println(pcWeatherNow);
+		Serial.print("Icon Name    : ");
+		Serial.println(pcIconNow);
+		Serial.println("----------------------------------------------");
+
+		Serial.print("memory used : ");
+		Serial.println(jsonWeatherToday.memoryUsage());
+	}
+}
+
+void getWeatherForcast(void) {
+	String strUrl = "GET /data/2.5/forecast/daily?id=" + CityId + "&appid=" + ApiKey + "&cnt=4&lang=de&mode=json&units=metric";
 	
 	Serial.println(TraceTime() + "getWeatherForcast");
+	Serial.println(TraceTime() + strUrl);
 
-	strUrl = "GET /data/2.5/forecast/daily?id=" + CityId + "&appid=" + ApiKey + "&cnt=4&lang=de&mode=json&units=metric";
-
-	if (wifiClient.connect(Server, 80)) {
-		wifiClient.println(strUrl);
-		strResult = wifiClient.readString();
-	}
-
-	Serial.println(TraceTime() + strResult);
-
-	if (strResult != "no data") {
-		decodeWeatherForcast(strResult);
-	}
-
-	return strResult;
+	decodeWeatherForcast(getJsonDataFromWeb(Server, strUrl));
 }
 
 void decodeWeatherForcast(String _WetterDaten) {
+	StaticJsonDocument<2500> jsonWeatherForecast; 
 	uint16_t u16Count = 0;
 	time_t ForcastTime;
-	char strData[30];
-	StaticJsonDocument<2500> doc; 	// make JSON doc
-	DeserializationError error = deserializeJson(doc, _WetterDaten);
+	char strData[40];
 
-	Serial.println(TraceTime() + "decodeWeatherForcast");
+	Serial.println(TraceTime() + "decodeCurrentWeather");
+	Serial.println(TraceTime() + _WetterDaten);
+
+	DeserializationError error = deserializeJson(jsonWeatherForecast, _WetterDaten);
 
 	if (error) {
 		Serial.print(TraceTime() + "deserializeJson failed - ");
 		Serial.println(error.c_str());
 		return;
-	}
+	} else {
+		// get data from JSON-tree 
+		u16Count = jsonWeatherForecast["cnt"];
+		Serial.print("Wettervorhersage für ");
+		Serial.print(u16Count);
+		Serial.println(" Tage");
 
-	// get data from JSON-tree 
-	u16Count = doc["cnt"];
-	Serial.print("Wettervorhersage für ");
-	Serial.print(u16Count);
-	Serial.println(" Tage");
+		if (u16Count > FORECAST) {
+			u16Count = FORECAST;
+		}
+	
+		pcCityNameForcast = jsonWeatherForecast["city"]["name"];
 
-	for (int i=0; i<u16Count; i++) {
-		yield();
+		for (int i=0; i<u16Count; i++) {
+			yield();
 
-		ForcastTime         = doc["list"][i]["dt"];
-		tempDayForcast[i]   = doc["list"][i]["temp"]["day"];
-		tempNigthForcast[i] = doc["list"][i]["temp"]["nigth"]; 
-		tempMinForcast[i]   = doc["list"][i]["temp"]["min"];
-		tempMaxForcast[i]   = doc["list"][i]["temp"]["max"];
-		humidityForcast[i]  = doc["list"][i]["humidity"];
-		pressureForcast[i]  = doc["list"][i]["pressure"];
+			ForcastTime         = jsonWeatherForecast["list"][i]["dt"];
+			tempDayForcast[i]   = jsonWeatherForecast["list"][i]["temp"]["day"];
+			tempNigthForcast[i] = jsonWeatherForecast["list"][i]["temp"]["nigth"]; 
+			tempMinForcast[i]   = jsonWeatherForecast["list"][i]["temp"]["min"];
+			tempMaxForcast[i]   = jsonWeatherForecast["list"][i]["temp"]["max"];
+			humidityForcast[i]  = jsonWeatherForecast["list"][i]["humidity"];
+			pressureForcast[i]  = jsonWeatherForecast["list"][i]["pressure"];
 
-		const char *city    = doc["city"]["name"];
-		const char *weather = doc["list"][i]["weather"][0]["description"];
-		const char *icon    = doc["list"][i]["weather"][0]["icon"];
+			pcWeatherNowForecast[i] = jsonWeatherForecast["list"][i]["weather"][0]["description"];
+			pdIconForecast[i] = jsonWeatherForecast["list"][i]["weather"][0]["icon"];
 
-		strcpy(cIcon[i], icon);
-		strcpy(cDay[i], WeekDay[weekday(ForcastTime) - 1]);
+			strcpy(&cDay[i][0], WeekDay[weekday(ForcastTime) - 1]);
+			
+			Serial.println("----------------------------------------------");
+			sprintf(strData, "Datum        : %s %02d.%02d", WeekDay[weekday(ForcastTime) - 1], day(ForcastTime), month(ForcastTime));
+			Serial.println(strData);
+			Serial.print("Stadt        : ");
+			Serial.println(pcCityNameForcast);
+			Serial.print("Tages Temp   : ");
+			Serial.print(tempDayForcast[i]);
+			Serial.println("°C");
+			Serial.print("Temp (Min)   : ");
+			Serial.print(tempMinForcast[i]);
+			Serial.println("°C");
+			Serial.print("Temp (Max)   : ");
+			Serial.print(tempMaxForcast[i]);
+			Serial.println("°C");
+			Serial.print("Feuchtigkeit : ");
+			Serial.print(humidityForcast[i]);
+			Serial.println("%");
+			Serial.print("Wetter       : ");
+			Serial.println(pcWeatherNowForecast[i]);
+			Serial.print("Icon Name    : ");
+			Serial.println(pdIconForecast[i]);
+			Serial.println("----------------------------------------------");
+		}
 		
-		Serial.println(strData);
-
-		cityName = (char *)city;
-		weatherTaday = (char *)weather;
-
-		Serial.println("----------------------------------------------");
-		sprintf(strData, "Datum        : %s %02d.%02d", WeekDay[weekday(ForcastTime) - 1], day(ForcastTime), month(ForcastTime));
-		Serial.println(strData);
-		Serial.print("Stadt        : ");
-		Serial.println(city);
-		Serial.print("Tages Temp   : ");
-		Serial.print(tempDayForcast[i]);
-		Serial.println("°C");
-		Serial.print("Temp (Min)   : ");
-		Serial.print(tempMinForcast[i]);
-		Serial.println("°C");
-		Serial.print("Temp (Max)   : ");
-		Serial.print(tempMaxForcast[i]);
-		Serial.println("°C");
-		Serial.print("Feuchtigkeit : ");
-		Serial.print(humidityForcast[i]);
-		Serial.println("%");
-		Serial.print("Wetter       : ");
-		Serial.println(weather);
-		Serial.print("Icon Name    : ");
-		Serial.println(cIcon[i]);
-		Serial.println("----------------------------------------------");
-	}
-
-	// clear area
-	tft.fillRect(5, yMiddle + 5, tftWidth - 10, hMiddle - 10, TFT_BLACK);
-	tft.setFreeFont(DefaultFont);
-	tft.setTextSize(1);	
-	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-
-	for (int i=0; i<u16Count; i++) {
-		yield();
+		// clear area
+		tft.fillRect(5, yMiddle + 5, tftWidth - 10, hMiddle - 10, TFT_BLACK);
 		tft.setFreeFont(DefaultFont);
-		tft.drawCentreString(String(cDay[i]), 7 + ((i * 80) + 32), yMiddle + 8, 1);
-		showWeather(cIcon[i], 7 + (i * 80), yMiddle + 30);
-		tft.drawCentreString(String(tempDayForcast[i], 1), 7 + ((i * 80) + 32), yMiddle + 8 + 64 + 24, 1);
+		tft.setTextSize(1);	
+		tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+
+		for (int i=0; i<u16Count; i++) {
+			yield();
+			tft.setFreeFont(DefaultFont);
+			tft.drawCentreString(String(cDay[i]), 7 + ((i * 80) + 32), yMiddle + 8, 1);
+			showWeather(pdIconForecast[i], 7 + (i * 80), yMiddle + 30);
+			tft.drawCentreString(String(tempMaxForcast[i], 1), 7 + ((i * 80) + 32), yMiddle + 8 + 64 + 24, 1);
+		}
+		
+		Serial.print("memory used : ");
+		Serial.println(jsonWeatherForecast.memoryUsage());
 	}
-
-	Serial.print("memory used : ");
-	Serial.println(doc.memoryUsage());
-}
-
-String decodeCurrentWeather(String _WetterDaten) {
-	StaticJsonDocument<2000> doc; 	// make JSON doc
-	Serial.println(TraceTime() + "decodeCurrentWeather");
-	DeserializationError error = deserializeJson(doc, _WetterDaten);
-
-	if (error) {
-		Serial.print(TraceTime() + "deserializeJson failed - ");
-		Serial.println(error.c_str());
-		return (String) "error";
-	}
-
-	// get data from JSON-tree 
-	tempToday     = doc["main"]["temp"];
-	tempMinToday  = doc["main"]["temp_min"];
-	tempMaxToday  = doc["main"]["temp_max"];
-	humidityToday = doc["main"]["humidity"];
-	pressureToday = doc["main"]["pressure"];
-
-	const char *city    = doc["name"];
-	const char *weather = doc["weather"][0]["description"];
-	const char *icon    = doc["weather"][0]["icon"];
-
-	cityName = (char *)city;
-	weatherTaday = (char *)weather;
-
-	Serial.println("----------------------------------------------");
-	Serial.print("Stadt        : ");
-	Serial.println(city);
-	Serial.print("Aktuelle Temp: ");
-	Serial.print(tempToday);
-	Serial.println("°C");
-	Serial.print("Temp (Min)   : ");
-	Serial.print(tempMinToday);
-	Serial.println("°C");
-	Serial.print("Temp (Max)   : ");
-	Serial.print(tempMaxToday);
-	Serial.println("°C");
-	Serial.print("Feuchtigkeit : ");
-	Serial.print(humidityToday);
-	Serial.println("%");
-	Serial.print("Wetter       : ");
-	Serial.println(weather);
-	Serial.print("Icon Name    : ");
-	Serial.println(icon);
-	Serial.println("----------------------------------------------");
-
-	Serial.print("memory used : ");
-	Serial.println(doc.memoryUsage());
-
-	return icon;
 }
 
 // -----------------------------------------------------------------------------------
