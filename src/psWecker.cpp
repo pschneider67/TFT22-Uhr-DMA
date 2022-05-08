@@ -155,7 +155,6 @@ bool clWecken::stelleWeckzeit(void) {
             break;              
         case 15:
             if (!Taster->StatusLong()) {
-                u32Timer2 = millis();
                 u16StatusWeckzeit = 20;
             }   
             break; 
@@ -206,6 +205,10 @@ bool clWecken::inkZeit (uint16_t *_u16Zeit, uint16_t _u16Grenze) {
 
     switch (u16InkZeit) {
         case 0:
+            u32Timer2 = millis();
+            u16InkZeit = 5;
+            break;
+        case 5:
             if (Taster->Status()) {
                 if (++*_u16Zeit == _u16Grenze) {
                     *_u16Zeit = 0;

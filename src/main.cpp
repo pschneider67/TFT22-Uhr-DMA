@@ -455,9 +455,9 @@ bool runDeleteFile(void) {
 			break;
 		case 10:
 			if (LittleFS.remove(cFile)) {
-				showState(String("Konfig. deleted"));
+				showState(String("config. deleted"));
 			} else {
-				showState(String("Fehler bei delete"));
+				showState(String("delete error"));
 			}
 			u32Timer = millis();
 			u16Status = 20;
@@ -590,73 +590,49 @@ void showDateAndTime(struct tm _actTimeinfo) {
 	}
 }
 
-void showWakeUpTime(bool bForce) {
-	static String oldString1 = " ";
-	static String oldString2 = " ";
-
-	String Str1 = Wecker[0].getTimeString();
-	String Str2 = Wecker[1].getTimeString();
-
-	String strName1 = Str1.substring(0,6);
-	String strName2 = Str2.substring(0,6);
-
-	String strH1 = Str1.substring(6,8);
-	String strH2 = Str2.substring(6,8);
-
-	String strM1 = Str1.substring(9,11);
-	String strM2 = Str2.substring(9,11);
-
-	String strD1 = Str1.substring(14,Str1.length());
-	String strD2 = Str2.substring(14,Str2.length());
-
+void showWakeUpTime(bool _bForce) {
+	static String oldString[MAX_WECKER];
+	String strWakupTime[MAX_WECKER];
+	String strName[MAX_WECKER];
+	String strHour[MAX_WECKER];
+	String strMinute[MAX_WECKER];
+	String strDay[MAX_WECKER];
+	
 	tft.setFreeFont(DefaultFont);
 	tft.setTextSize(1);	
 	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-	
-	if ((oldString1 != Str1) || bForce) {
-		Serial.println(strName1 + strH1 + String(":") + strM1 + String(" : ") + strD1);
-		tft.drawString(strName1, 10, 140);
-		if (strH1 != "  ") {
-			tft.drawString(strH1, 90, 140);
-		} else {
-			tft.fillRect(90, 140, 30, 21, TFT_BLACK);
-		}
-		tft.drawString(":", 120, 140);
-		if (strM1 != "  ") {
-			tft.drawString(strM1, 130, 140);
-		} else {
-			tft.fillRect(130, 140, 30, 21, TFT_BLACK);
-		}
-		tft.drawString(" : ", 158, 140);
-		if (strD1.substring(0,1) != " ") {
-			tft.drawString(strD1, 180, 140);
-		} else {
-			tft.fillRect(180, 140, 320 - 190, 21, TFT_BLACK);
-		}
-		oldString1 = Str1;
-	}
 
-	if ((oldString2 != Str2) || bForce) {
-		Serial.println(strName2 + strH2 + String(":") + strM2 + String(" : ") + strD2);
-		tft.drawString(strName2, 10, 165);
-		if (strH2 != "  ") {
-			tft.drawString(strH2, 90, 165);
-		} else {
-			tft.fillRect(90, 165, 30, 21, TFT_BLACK);
-		}
-		tft.drawString(":", 120, 165);
-		if (strM2 != "  ") {
-			tft.drawString(strM2, 130, 165);
-		} else {
-			tft.fillRect(130, 165, 30, 21, TFT_BLACK);
-		}
-		tft.drawString(" : ", 158, 165);
-		if (strD2.substring(0,1) != " ") {
-			tft.drawString(strD2, 180, 165);
-		} else {
-			tft.fillRect(180, 165, 320 - 190, 21, TFT_BLACK);
-		}
-		oldString2 = Str2;
+	for (int i = 0; i < MAX_WECKER; i++) {
+		uint16_t y = 140 + (i * 25); 
+		strWakupTime[i] = Wecker[i].getTimeString(); 
+		strName[i]   = strWakupTime[i].substring(0,6);
+		strHour[i]   = strWakupTime[i].substring(6,8);
+		strMinute[i] = strWakupTime[i].substring(9,11);
+		strDay[i]    = strWakupTime[i].substring(14,strWakupTime[i].length());
+
+		if ((oldString[i] != strWakupTime[i]) || _bForce) {
+			Serial.println(TraceTime() + strWakupTime[i]);
+
+			tft.drawString(strName[i], 10, y);
+			if (strHour[i].substring(0,1) != " ") {
+				tft.drawString(strHour[i], 90, y);
+			} else {
+				tft.fillRect(90, y, 30, 21, TFT_BLACK);
+			}
+			tft.drawString(":", 120, y);
+			if (strMinute[i].substring(0,1) != " ") {
+				tft.drawString(strMinute[i], 130, y);
+			} else {
+				tft.fillRect(130, y, 30, 21, TFT_BLACK);
+			}
+			tft.drawString(" : ", 158, y);
+			if (strDay[i].substring(0,1) != " ") {
+				tft.drawString(strDay[i], 180, y);
+			} else {
+				tft.fillRect(180, y, 320 - 190, 21, TFT_BLACK);
+			}
+			oldString[i] = strWakupTime[i];
+		}	
 	}
 }
 
@@ -669,7 +645,7 @@ void showWakeUpTime(bool bForce) {
 // Then we can write the new time string to the sprite object.
 // At last the sprite object is shown at the display.
 // -----------------------------------------------------------------------------------------------------
-void showTime(struct tm _actTimeinfo, bool bForce) {
+void showTime(struct tm _actTimeinfo, bool _bForce) {
 	static uint16_t u16State = 0;
 	static String strZeitOld = " ";
 
@@ -709,7 +685,7 @@ void showTime(struct tm _actTimeinfo, bool bForce) {
 			u16State = 5;
 			break;
 		case 10: 	// wait for a new minute (seccond == 0)
-			if ((_actTimeinfo.tm_sec == 0) || bForce) {
+			if ((_actTimeinfo.tm_sec == 0) || _bForce) {
 				u16State = 20;
 			}
 			break;
@@ -834,7 +810,6 @@ void initNetwork(void) {
 		tft.drawString(".. ESP Reset !!", 10, 70);
 		delay(5000);
 		while (true) {;}
-
 	}
 }
 
@@ -1070,7 +1045,6 @@ void decodeWeatherForcast(String _WetterDaten) {
 	char strData[30];
 	char cDay[FORECAST][5];
 
-	const char* pcIcon[FORECAST];
 	const char* pcWeatherNowForecast[FORECAST];
 	const char* pdIconForecast[FORECAST];
 	const char* pcCityNameForcast;
@@ -1146,9 +1120,9 @@ void decodeWeatherForcast(String _WetterDaten) {
 		for (int i=0; i<u16Count; i++) {
 			yield();
 			tft.setFreeFont(DefaultFont);
-			tft.drawCentreString(String(cDay[i]), 7 + ((i * 80) + 32), yMiddle + 8, 1);
-			showWeather(pdIconForecast[i], 7 + (i * 80), yMiddle + 30);
-			tft.drawCentreString(String(tempMaxForcast[i], 1), 7 + ((i * 80) + 32), yMiddle + 8 + 64 + 24, 1);
+			tft.drawCentreString(String(cDay[i]), 8 + ((i * 80) + 32), yMiddle + 8, 1);
+			showWeather(pdIconForecast[i], 8 + (i * 80), yMiddle + 30);
+			tft.drawCentreString(String(tempMaxForcast[i], 1), 8 + ((i * 80) + 32), yMiddle + 8 + 64 + 24, 1);
 		}
 		
 		Serial.print("memory used : ");
