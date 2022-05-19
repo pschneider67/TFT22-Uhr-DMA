@@ -25,18 +25,6 @@
 // to convert fonts  to *.h : http://oleddisplay.squix.ch/#/home
 // to convert images to *.h : http://rinkydinkelectronics.com/t_imageconverter565.php?msclkid=b9c2d4cdbd8811ec8ed10cdb25a780d0
 // -----------------------------------------------------------------------------------
-#include "Arduino.h"
-
-#include <string.h>
-#include <time.h>
-#include <LittleFS.h>
-#include <SPI.h>
-#include <TFT_eSPI.h> 		
-#include <TimeLib.h>
-#include <ArduinoJson.h>
-#include <ArduinoOTA.h> 		// OTA Upload via ArduinoIDE
-
-#include "font.h"
 #include "TFT22-Uhr.h"
 
 // ---------------------------------------------------------------------------------------------------
@@ -66,7 +54,8 @@ String strIcon;
 
 const char WeekDay[7][5] = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr. ", "Sa. "};
 
-const GFXfont *DefaultFont = &Arimo_Regular_24;
+//const GFXfont *DefaultFont = &Arimo_Regular_24;
+const GFXfont *DefaultFont = &Arimo12pt7b;
 const GFXfont *TimeFont = &Arimo_Regular_95;
 const GFXfont *IconFont = &Arimo_Regular_12;
 
@@ -86,6 +75,7 @@ uint16_t tftHeight;
 
 WiFiManager wifiManager;
 WiFiClient wifiClient;
+ESP8266WebServer wifiServer(80);
 
 clOut led;
 clOut buzzer;
@@ -112,7 +102,6 @@ std::array<clWecken, MAX_WECKER> Wecker = {
     clWecken(&timeinfo, &buzzer, &sw02, &stWz[0]),
     clWecken(&timeinfo, &buzzer, &sw02, &stWz[1]),
 };
-
 typedef struct {
 	char strStunden[3];
 	char strMinuten[3];
@@ -179,6 +168,15 @@ void setup() {
 	initNetwork();
 
 	tftBrigthnees();
+	
+	/* only for test font	
+	tft.fillScreen(TFT_BLACK);
+	for (int i=0; i < 0x7F; i++) {
+		tft.print(char(i));
+	}
+	delay (10000);
+	*/
+
 	showFrame();
 	
 	configTime(MY_TZ, MY_NTP_SERVER);
@@ -195,7 +193,7 @@ void setup() {
 	initIrq();
 	showWeatherIcon(bild_44, xPosWeatherNow, yPosWeatherNow);
 
-	// config OTA 
+		// config OTA 
  	ArduinoOTA.onStart([]() {  
 	 	tft.fillScreen(TFT_BLACK);
 		tft.setFreeFont(DefaultFont);
@@ -257,6 +255,8 @@ void loop(void) {
 	if (HMenue.getAktualMenue() != 0) {
 		strTextOld = " ";
 	}
+
+	wifiServer.handleClient();
 
 	// show clock and weather only at menue piont 0
 	switch (HMenue.getAktualMenue()) {
@@ -486,6 +486,7 @@ bool runWeatherForcast (void) {
 	static uint16_t u16Status = 0;
 	static uint32_t u32Timer = 0;
 	bool bResult = false;
+	String strData;
 	
 	switch (u16Status) {
 		case 0:
@@ -498,7 +499,8 @@ bool runWeatherForcast (void) {
 			break;
 		case 10:
 			getWeatherForcast();
-			showState("Wettervorschau");
+			strData = String("Wettervorschau für ") + strCityNameForecast;
+			showState(convertStringToGerman(strData));
 			u16Status = 20;
 			break;
 		case 20:	
@@ -811,6 +813,7 @@ void initNetwork(void) {
 		tft.drawString(".. WLan connected", 10, 40);
 		String strText = String(".. ") + WiFi.SSID() + String(" - ") + WiFi.localIP().toString();
 		tft.drawString(strText, 10, 70);
+		wifiServer.begin();
 		delay(4000);
 	} else {
 		tft.drawString(".. WLan error !!", 10, 40);
@@ -1043,7 +1046,7 @@ void decodeWeatherForcast(String _WetterDaten) {
 	time_t ForecastTime;
 	char strData[30];
 	char cDay[FORECAST][5];
-
+	
 	Serial.println(TraceTime() + "decodeWeatherForcast");
 	
 	DeserializationError error = deserializeJson(jsonWeatherForecast, _WetterDaten);
@@ -1112,7 +1115,7 @@ void decodeWeatherForcast(String _WetterDaten) {
 			tft.setFreeFont(DefaultFont);
 			tft.drawCentreString(String(cDay[i]), 8 + ((i * 80) + 32), yMiddle + 8, 1);
 			showWeather(strIconForecast[i], 8 + (i * 80), yMiddle + 30);
-			tft.drawCentreString(String(tempMaxForecast[i], 1), 8 + ((i * 80) + 32), yMiddle + 8 + 64 + 24, 1);
+			tft.drawCentreString(String(tempMaxForecast[i], 0) + String("'C"), 8 + ((i * 80) + 32), yMiddle + 8 + 64 + 24, 1);
 		}
 		
 		Serial.print("memory used : ");
@@ -1161,4 +1164,10 @@ String TraceTime(void) {
 	uint16_t u16h = (uint16_t)(u32TimerTick / 3600000);
 	sprintf(cTimeStampStr, "> %02u:%02u:%02u.%03u - ", u16h, u16m, u16s, u16ms);
 	return String(cTimeStampStr);
+}
+
+String convertStringToGerman(String strData) {
+	strData.replace(String("ß"), String("&"));
+	strData.replace(String("ü"), String("("));
+	return strData;
 }

@@ -7,12 +7,26 @@
 
 #pragma once
 
+#include "Arduino.h"
+
+#include <string.h>
+#include <time.h>
+#include <LittleFS.h>
+#include <SPI.h>
+#include <TFT_eSPI.h> 		
+#include <TimeLib.h>
+#include <ArduinoJson.h>
+#include <ArduinoOTA.h> 		// OTA Upload via ArduinoIDE
+
+#include "font.h"
+
 enum class POLARITY: uint16_t {
 	NEG = 0,
 	POS = 1
 };
 
-#include <WiFiManager.h> 	// https://github.com/tzapu/WiFiManager WiFi Configuration Magic
+#include <WiFiManager.h> 		// https://github.com/tzapu/WiFiManager WiFi Configuration Magic
+#include <ESP8266WebServer.h>
 
 #include "psOutput.h"
 #include "psInput.h"
@@ -119,4 +133,5 @@ void decodeCurrentWeather(String WetterDaten);
 void getWeatherForcast(void);
 void decodeWeatherForcast(String WetterDaten);
 
+String convertStringToGerman(String);
 String TraceTime (void);
