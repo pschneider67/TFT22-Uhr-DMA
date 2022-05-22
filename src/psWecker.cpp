@@ -12,9 +12,9 @@ uint16_t clWecken::sWeckerNr = 0;
 clWecken *clWecken::pclWecken[MAX_WECKER];
 
 clWecken::clWecken (tm *_AktuelleZeit, clOut *_Summer, clIn *_Taster, stWeckZeit *_stWz) {
-    u16WeckerNr = sWeckerNr++;          // zähle die Instanzen
+    u16WeckerNr = sWeckerNr++;          // count instances
 
-    if (u16WeckerNr < MAX_WECKER) {     // speichere einen Pointer auf diese Instanz
+    if (u16WeckerNr < MAX_WECKER) {     // save pointer to instance
         pclWecken[u16WeckerNr] = this;
     } 
 
@@ -81,7 +81,7 @@ String clWecken::getTimeString(void) {
                 u16StatusWzAnzeige = 50;
             }
             break;
-        case 10:    // Anzeige Stunden aus
+        case 10:    // hour off 
             if (bAktive) {
                 sprintf(cStr, "W%u: *   :%02u : %s", u16WeckerNr + 1, WeckZeit.u16Minute, _WeekDay[(uint16_t)WeckZeit.Wochentag]);
             } else {
@@ -92,12 +92,12 @@ String clWecken::getTimeString(void) {
                 u16StatusWzAnzeige = 20;
             }
             break;
-        case 20:    // Zeitanzeige komplett
+        case 20:    // show complete time string
             if (millis() > (u32Timer1 + 300)) {
                 u16StatusWzAnzeige = 0;
             }
             break;
-        case 30:    // Anzeige Minuten aus
+        case 30:    // minutes off
             if (bAktive) {
                 sprintf(cStr, "W%u: * %02u:   : %s", u16WeckerNr + 1, WeckZeit.u16Stunde, _WeekDay[(uint16_t)WeckZeit.Wochentag]);
             } else {
@@ -108,12 +108,12 @@ String clWecken::getTimeString(void) {
                 u16StatusWzAnzeige = 40;
             }
             break;
-        case 40:    // Zeitanzeige komplett
+        case 40:    // show complete time string
             if (millis() > (u32Timer1 + 300)) {
                 u16StatusWzAnzeige = 0;
             }
             break;
-        case 50:    // Wochentage aus
+        case 50:    // week day off
             if (bAktive) {
                 sprintf(cStr, "W%u: * %02u:%02u :   ", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute);
             } else {
@@ -141,7 +141,7 @@ bool clWecken::stelleWeckzeit(void) {
     bool bResult = false;
 
     switch (u16StatusWeckzeit) {
-        case 0:     // warte auf Testendruck
+        case 0:     // wait for switch
             bStelleStunden = false;
             bStelleMinuten = false;
             bStelleTage = false;
@@ -149,7 +149,7 @@ bool clWecken::stelleWeckzeit(void) {
                 u16StatusWeckzeit = 10;
             }
             break;
-        case 10:    // Funktion beginnen
+        case 10:    // start function
             bStelleStunden = true;    
             u16StatusWeckzeit = 15;
             break;              
@@ -250,12 +250,12 @@ bool clWecken::inkZeit (uint16_t *_u16Zeit, uint16_t _u16Grenze) {
 }
 
 // ---------------------------------------------------------------------------------------------------
-// statische Methode
+// static
 // ---------------------------------------------------------------------------------------------------
                                                                                                                                                                                                                          
 // ---------------------------------------------------------------------------------------------------
-// Aktiviere Weckzeiten mit Taster 
-// Zum Starten muss die Taste 3sec lang gedückt werden
+// activate alarm time by pushing a switch
+// to start push switch a long time
 // ---------------------------------------------------------------------------------------------------
 bool clWecken::enableWakeUpTime(clIn *_Taster) {
    	static uint16_t u16Status = 0;
@@ -337,7 +337,7 @@ bool clWecken::enableWakeUpTime(clIn *_Taster) {
 }
 
 // ---------------------------------------------------------------------------------------------------
-// Püfen ob Weckfunktion getstartet werden muss
+// check alarm time is running
 // ---------------------------------------------------------------------------------------------------
 void clWecken::Check(void) {
     static uint16_t u16sCount = 0;
@@ -349,7 +349,7 @@ void clWecken::Check(void) {
 
         pclWecken[u16sCount]->bTagOk = false;
 
-        // Prüfe ob der Wecker aktiv ist
+        // check alarm time is active
         if (pclWecken[u16sCount]->WeckZeit.Wochentag == (WOCHEN_TAG)pclWecken[u16sCount]->AktuelleZeit->tm_wday) {
             pclWecken[u16sCount]->bTagOk = true;        
         } else if (pclWecken[u16sCount]->WeckZeit.Wochentag == WOCHEN_TAG::ALL) {
@@ -366,7 +366,7 @@ void clWecken::Check(void) {
             }
         }
      
-        // Weckenton ausschalten
+        // switch off alarm sound
         if (pclWecken[u16sCount]->Taster->Status()) {
             pclWecken[u16sCount]->u16Status = 30;
         }

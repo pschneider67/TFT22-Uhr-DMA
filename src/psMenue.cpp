@@ -23,25 +23,24 @@ bool clMenue::Verwaltung(void) {
     bool bResult = false;
     static uint16_t u16Status = 0;
 
-    // Menüfunktion aufrufen
-    // Wird "true" zurückgegeben, dann wurde die Funktion komplett abgearbeitet
-    // oder noch nicht getartet
+    // call menue function
+    // return "true" --> function is ready or not started yet
     bMenueFertig = MenueArray[u16MenueCount]._cbMenue();
 
     switch (u16Status) {
         case 0:     // init
             if (!MenueTaster->Status()) { 
-                u16MenueCount = 0;                                  // aktuell aktives Menü
-                cbAnzeige(MenueArray[u16MenueCount]._MenueName);    // aktuellen Menüname anzeigen
+                u16MenueCount = 0;                                  // actual menue number
+                cbAnzeige(MenueArray[u16MenueCount]._MenueName);    // show actual menue
                 u16Status = 10;
             }
             break;
-        case 10:    // Zum Starten muss der Taster 2s lang gedrückt werden
+        case 10:    // to start, push switch  for 2s
             if (MenueTaster->StatusLong()) {
                 u16Status = 20;
             } 
             break;
-        case 20:    // Menü um 1 Menüpunkt weiterschalten
+        case 20:    // set next meune from list
             if (bMenueFertig) {
                 if (MenueArray[u16MenueCount]._bLastItem) {
                     u16MenueCount = 0;
@@ -52,13 +51,13 @@ bool clMenue::Verwaltung(void) {
                 u16Status = 30;
             } 
             break;
-        case 30:    // Warten bis Tatster nicht mehr gedrückt wird
+        case 30:    // wait for switch off
             if (!MenueTaster->Status()) {
                 u32Timer = millis();
                 u16Status = 40;
             }
             break;
-        case 40:    // Warte auf den nächste Tastendruck oder Funktion abrechen
+        case 40:    // wait for switch on aor timeout
             if (MenueTaster->Status()) { 
                 u16Status = 20;
             } else if (millis() > (u32Timer + 3000)) {

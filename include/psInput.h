@@ -8,13 +8,13 @@
 #pragma once
 
 struct stInput {
-	uint16_t	pin;				// GPIO Nummer
-	uint16_t	mode;				// Interrupt wird ausglöst bei Flanke oder Flankenwechsel
-	uint16_t	entprellzeit;		// Entprellzeit, bei Verwendung des Interrupts nicht verwendet
-	uint16_t	switchLongTime;		// Zeit für Langer Tastendruck
-	void (*cb)(void);		   		// Interrupt Service Routine als call back
-	POLARITY	polarity;			// Polarität
-	bool		irq;				// true --> Es wird ein Interrupt benutzt
+	uint16_t	pin;				// number of GPIO 
+	uint16_t	mode;				// irq at rising / falling edge 
+	uint16_t	entprellzeit;		// debounce time, not active if irq is used
+	uint16_t	switchLongTime;		// time to set a long push 
+	void (*cb)(void);		   		// irq call back
+	POLARITY	polarity;			// polarity of switch hardware
+	bool		irq;				// true --> activate irq
 };
 
 class clIn {
@@ -46,7 +46,7 @@ class clIn {
 		uint16_t u16InCount;
 		static uint16_t u16InCountMax;
 				
-		bool bStatus;	// aktueller Status des Eingangs		
+		bool bStatus;	// actual state of switch		
 		bool bShort;
 		bool bLong;
 };

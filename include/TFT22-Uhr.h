@@ -112,6 +112,7 @@ String getJsonDataFromWeb (String, String);
 bool initTime(void);
 void initIrq(void);
 void initFs(void);
+void initOTA(void);
 void saveConfigCallback(void);
 void saveWeckerConfig(void);
 void showWeatherString(void);
@@ -123,6 +124,7 @@ bool runWakeUpTime_2(void);
 bool runState(void);
 bool runDeleteFile(void);
 bool runWeatherForcast(void);
+bool runSetWakeUpTime(void);
 
 void irqTimer0(void);
 void irqSw01(void);

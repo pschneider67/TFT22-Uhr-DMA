@@ -74,7 +74,7 @@ class clOut {
 						FlashStatus = 20;
 					}
 					break;
-				case 20:			// wait for Reset false
+				case 20:			// wait for reset false
 					break;
 				default:
 					FlashStatus = 0;

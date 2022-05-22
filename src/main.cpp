@@ -4,8 +4,6 @@
 //
 // D1_mini with TFT 2.2", 320 x 240, SPI
 // -----------------------------------------------------------------------------------
-// pinning
-// -----------------------------------------------------------------------------------
 // VCC        - 3V3
 // GND        - GND
 // CS         -  D1   - GPIO-05
@@ -14,7 +12,7 @@
 // SDI / MOSI -  D7   - GPIO-13
 // SCK        -  D5   - GPIO-14
 // LED        -  D3   - GPIO-00 TFT backligth with PWM
-// SDO / MISO -  D6   - GPIO-12 there is a seccond wireing with switch 1
+// SDO / MISO -  D6   - GPIO-12 there is a seccond use - switch 1
 // -----------------------------------------------------------------------------------
 // LDR        -  A0   - ADC0    measure brigthness to change TFT backligth 
 // Buzzer     -  D0	  - GPIO-16
@@ -49,26 +47,27 @@ TFT_eSprite actTimeSecToShow = TFT_eSprite(&tft);	// sprite to show actual time 
 // use openweather setup
 String ApiKey = API_KEY;
 String CityId = CITY_KEY; 
-const char Server[] = "api.openweathermap.org";
+const char Server[] PROGMEM = "api.openweathermap.org";
 String strIcon;
 
-const char WeekDay[7][5] = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr. ", "Sa. "};
+const char WeekDay[7][5] PROGMEM = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr. ", "Sa. "};
 
-//const GFXfont *DefaultFont = &Arimo_Regular_24;
-const GFXfont *DefaultFont = &Arimo12pt7b;
-const GFXfont *TimeFont = &Arimo_Regular_95;
-const GFXfont *IconFont = &Arimo_Regular_12;
+const GFXfont *DefaultFont = &Arimo10pt7b;
+const GFXfont *TimeFont = &Arimo_Bold_Time54pt7b;
 
-const uint16_t hSpace = 8;							 // space
-const uint16_t yTop = 0;							 // start upper area
-const uint16_t hTop = 40;							 // higth of upper area
-const uint16_t yMiddle = hTop + hSpace;				 // start middle area
-const uint16_t hMiddle = yMiddle + 95;				 // higth of middle area
-const uint16_t yBottom = yMiddle + hMiddle + hSpace; // start lower area
-const uint16_t hBottom = 40;						 // higth of lower area
+const uint16_t hSpace = 8;						// space
 
-const uint16_t xPosWeatherNow = 6;
-const uint16_t yPosWeatherNow = yMiddle + 5;
+const uint16_t yTop = 0;					 	// start upper area
+const uint16_t hTop = 35;						// higth of upper area
+
+const uint16_t hBottom = 35;					// higth of lower area
+const uint16_t yBottom = 240 - hBottom;			// start lower area
+
+const uint16_t yMiddle = hTop + hSpace;			// start middle area
+const uint16_t hMiddle = (240 - hTop - hBottom) - (2 * hSpace);		// higth of middle area
+
+const uint16_t xPosWeatherNow = 2 * hSpace;
+const uint16_t yPosWeatherNow = yBottom - (hSpace + 2) - 64;
 
 uint16_t tftWidth;
 uint16_t tftHeight;
@@ -88,8 +87,8 @@ clIn sw01;
 stInput ParamSw02 = {SW_02, CHANGE, 40, 2000, irqSw02, POLARITY::POS, false};
 clIn sw02;
 
-char cVersion[] = "02.00";
-char cDatum[]   = __DATE__;
+char cVersion[] PROGMEM = "02.00";
+char cDatum[]   PROGMEM = __DATE__;
 
 // definition of wake up times
 stWeckZeit stWz[MAX_WECKER] = {
@@ -116,14 +115,15 @@ weck_daten_t WeckerDaten[MAX_WECKER] = {
 
 bool shouldSaveConfig = false;
 
-menue_t hmMenue[6] = { 
+menue_t hmMenue[7] = { 
 //   function                   menue string             last item
-	{runMainMenue,    	String("Uhrzeit / Weckzeiten"),  false},
-	{runWakeUpTime_1, 	String("Weckzeit 1 einstellen"), false},
-	{runWakeUpTime_2, 	String("Weckzeit 2 einstellen"), false},
-	{runWeatherForcast, String("Wettervorschau"),        false},
-	{runState,        	String("Statusanzeige"),         false},
-	{runDeleteFile,   	String("Delete Konfiguration"),   true}
+	{runMainMenue,    	String("Uhrzeit / Weckzeiten"),  false},		// 0
+	{runWakeUpTime_1, 	String("Weckzeit 1 einstellen"), false},		// 1	
+	{runWakeUpTime_2, 	String("Weckzeit 2 einstellen"), false},		// 2
+	{runWeatherForcast, String("Wettervorschau"),        false},		// 3
+	{runSetWakeUpTime, 	String("Weckzeiten einsellen"),  false},		// 4
+	{runState,        	String("Statusanzeige"),         false},		// 5
+	{runDeleteFile,   	String("Delete Konfiguration"),   true}			// 6
 };
 
 // menue control
@@ -166,71 +166,35 @@ void setup() {
 	initDisplay();
 	initGpio();
 	initNetwork();
-
+	initOTA();
+	
 	tftBrigthnees();
 	
-	/* only for test font	
-	tft.fillScreen(TFT_BLACK);
-	for (int i=0; i < 0x7F; i++) {
-		tft.print(char(i));
-	}
-	delay (10000);
-	*/
-
 	showFrame();
 	
 	configTime(MY_TZ, MY_NTP_SERVER);
 
-	initFs();	// read konfig data of clock
+	initFs();	// read config data of clock
 	
 	Serial.println();
-	Serial.println("--------------------------------------");
-	Serial.println("- TFT2.2 clock spi                    -");
-	Serial.println("--------------------------------------");
-	Serial.println(String("version    - ") + String(cVersion));
-	Serial.println(String("build date - ") + String(cDatum));
+	Serial.println(F("--------------------------------------"));
+	Serial.println(F("- TFT2.2 clock spi                   -"));
+	Serial.println(F("--------------------------------------"));
+	Serial.println(String("version        - ") + String(cVersion));
+	Serial.println(String("build date     - ") + String(cDatum));
+	Serial.println(String("esp core       - ") + ESP.getCoreVersion());
+	Serial.println(String("Free Heap Size - ") + ESP.getFreeHeap());
+	Serial.println();
 
 	initIrq();
 	showWeatherIcon(bild_44, xPosWeatherNow, yPosWeatherNow);
 
-		// config OTA 
- 	ArduinoOTA.onStart([]() {  
-	 	tft.fillScreen(TFT_BLACK);
-		tft.setFreeFont(DefaultFont);
-		tft.setTextColor(TFT_WHITE, TFT_BLACK);
-		tft.setCursor(0,30);
-		tft.println(".. Start Update");
-	});
- 	ArduinoOTA.onEnd([]() {  
-		tft.println(" ");
-		tft.println(".. Restart System");
-		delay(2000);
-  	});
-	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-		static uint16_t u16FirstCall = true;
-		static uint16_t u16Count = 0;
-		if (u16FirstCall) {
-			tft.print(".. Progress: ");
-			u16FirstCall = false;
-		} else {
-			if (u16Count++ == 25) {
-				tft.print(".");
-				u16Count = 0;
-			}
-			if (total == progress) {
-				tft.println(" ");
-				tft.print(".. Update ready");
-			}
-		}
-	});
-	ArduinoOTA.begin(); 	
 }
 
 // ---------------------------------------------------------------------------------------------------
 // loop
 // ---------------------------------------------------------------------------------------------------
 void loop(void) {
-	//String strText = String("T:") + String(tempToday, 1) + String(char(247)) + String("C, ") + String("H:") + String(humidityToday, 1) + String("%");
 	String strText = String("T:") + String(tempToday, 1) + String("'C, ") + String("H:") + String(humidityToday, 1) + String("%");
 	static String strTextOld = " ";
 
@@ -240,6 +204,7 @@ void loop(void) {
 	sw02.runState();
 
 	led.SwPort(sw01.Status());				// switch LED on with swith 1 - only for test
+	tftBrigthnees();
 
 	time(&actualTime);					 	// get actual time
 	localtime_r(&actualTime, &timeinfo); 	// write actual time to timeinfo 
@@ -247,7 +212,7 @@ void loop(void) {
 	clWecken::Check();						// check wake up time
 
 	showDateAndTime(timeinfo); 				
-	tftBrigthnees();
+	
 	showWakeUpTime(false);
 	
 	HMenue.Verwaltung();					// run menue
@@ -269,6 +234,7 @@ void loop(void) {
 		case 2:
 		case 4:
 		case 5:
+		case 6:
 			showTime(timeinfo, false);
 			if (bGetWeather) {
 				getActualWeather();	
@@ -312,24 +278,11 @@ void showWeather(String _strIcon, uint16_t _xpos, uint16_t _ypos) {
 }
 
 void showWeatherIcon(const unsigned short* _image, uint16_t _xpos, uint16_t _ypos) {
-	static String strTimeOld = " ";
-	String strTime;
-	uint16_t u16Width = 64;
+	uint16_t u16Width = 64;		// icon size
 	uint16_t u16Higth = 64;
 	
 	tft.fillRect(_xpos, _ypos, u16Width, u16Higth, TFT_BLACK);	
 	tft.pushImage(_xpos, _ypos, 64, 64, _image);
-	
-	//tft.setFreeFont(IconFont);
-	//tft.setTextColor(TFT_BLACK);
-	//tft.drawCentreString(strTimeOld, _xpos + 32, _ypos + 64 + 2, 1);
-
-	//sprintf(str, "%02u:%02u", timeinfo.tm_hour, timeinfo.tm_min);
-	//strTime = String(str);
-	//tft.setTextColor(TFT_YELLOW);
-	//tft.drawCentreString(strTime, _xpos + 32, _ypos + 64 + 2, 1);
-
-	strTimeOld = strTime;
 }
 
 void showState(String _strData) {
@@ -340,11 +293,11 @@ void showState(String _strData) {
 
 	// clear actual string
 	tft.setTextColor(TFT_BLACK, TFT_BLACK);
-	tft.drawCentreString(strOld, tftWidth / 2, yBottom + 9, 1);
+	tft.drawCentreString(strOld, tftWidth / 2, yBottom + 8, 1);
 
 	// draw new string
 	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-	tft.drawCentreString(_strData, tftWidth / 2, yBottom + 9, 1);
+	tft.drawCentreString(_strData, tftWidth / 2, yBottom + 8, 1);
 	tft.setFreeFont(NULL);
 
 	strOld = _strData;
@@ -356,6 +309,14 @@ void showState(String _strData) {
 bool runMainMenue(void) {
 	return clWecken::enableWakeUpTime(&sw02);
 } 
+
+bool runSetWakeUpTime(void) {
+	static uint16_t u16Status = 0;
+	static uint16_t u16StatusOld = 1;
+	bool bResult = true;
+
+	return bResult;
+}
 
 bool changeWakeUpTime(uint16_t _u16Nr) {
 	static uint16_t u16Status = 0;
@@ -456,7 +417,7 @@ bool runDeleteFile(void) {
 		case 0:
 			bResult = true;
 			if (sw02.Status()) {
-				Serial.printf("Deleting file: %s\r\n", cFile);
+				Serial.printf("delete file: %s\r\n", cFile);
 				u16Status = 10;
 			}
 			break;
@@ -492,15 +453,13 @@ bool runWeatherForcast (void) {
 		case 0:
 			bResult = true;
 			if (sw02.Status()) {
-				Serial.printf("get Weather forcast");
-				showState("warte auf Wetterdaten");
+				Serial.println("get weather forcast");
+				showState("lade Wetterdaten");
 				u16Status = 10;
 			}
 			break;
 		case 10:
 			getWeatherForcast();
-			strData = String("Wettervorschau für ") + strCityNameForecast;
-			showState(convertStringToGerman(strData));
 			u16Status = 20;
 			break;
 		case 20:	
@@ -518,11 +477,11 @@ bool runWeatherForcast (void) {
 			break;
 		case 40:
 			if (!sw02.Status()) {
-				tft.fillRect(5, yMiddle + 5, tftWidth - 10, hMiddle - 10, TFT_BLACK);
-				bGetWeather = true;
-				showWeather(strIconToday, xPosWeatherNow, yPosWeatherNow);
+				tft.fillRect(5, yMiddle + 5, tftWidth - 10, hMiddle - 10, TFT_BLACK);	// clear screen 
 				showWakeUpTime(true);
 				showTime(timeinfo, true);
+				bGetWeather = true;														// load weather icon
+				showWeather(strIconToday, xPosWeatherNow, yPosWeatherNow);
 				u16Status = 0;
 			}
 			break;
@@ -542,17 +501,17 @@ void showFrame(void) {
 }
 
 void showDateAndTime(struct tm _actTimeinfo) {
-	uint16_t spriteHigth = 30;
+	uint16_t spriteHigth = 18;
 	
 	// date
-	uint16_t spriteWidth1 = (tftWidth / 2) + 16;
-	uint16_t spriteXPos1  = 6;	
-	uint16_t spriteYPos1  = 4;
+	uint16_t spriteWidth1 = (tftWidth / 2) - 20;
+	uint16_t spriteXPos1  = hSpace;	
+	uint16_t spriteYPos1  = 9;
 
 	// time
-	uint16_t spriteWidth2 = (tftWidth / 2) - 28;
-	uint16_t spriteXPos2  = (tftWidth / 2) + 22;	
-	uint16_t spriteYPos2  = 4;
+	uint16_t spriteWidth2 = (tftWidth / 2) - 75;
+	uint16_t spriteXPos2  = (tftWidth / 2) + 75 - hSpace;	
+	uint16_t spriteYPos2  = 9;
 
 	char str[20];
 	static String strTimeOld = " ";
@@ -606,13 +565,15 @@ void showWakeUpTime(bool _bForce) {
 	String strHour[MAX_WECKER];
 	String strMinute[MAX_WECKER];
 	String strDay[MAX_WECKER];
-	
+
+	uint16_t xOffset = 64 + (2 * hSpace);
+
 	tft.setFreeFont(DefaultFont);
 	tft.setTextSize(1);	
 	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
 
 	for (int i = 0; i < MAX_WECKER; i++) {
-		uint16_t y = 140 + (i * 25); 
+		uint16_t y = 141 + (i * 23); 
 		strWakupTime[i] = Wecker[i].getTimeString(); 
 		strName[i]   = strWakupTime[i].substring(0,6);
 		strHour[i]   = strWakupTime[i].substring(6,8);
@@ -622,23 +583,23 @@ void showWakeUpTime(bool _bForce) {
 		if ((oldString[i] != strWakupTime[i]) || _bForce) {
 			Serial.println(TraceTime() + strWakupTime[i]);
 
-			tft.drawString(strName[i], 10, y);
+			tft.drawString(strName[i], xOffset + 10, y);			// Name
 			if (strHour[i].substring(0,1) != " ") {
-				tft.drawString(strHour[i], 90, y);
+				tft.drawString(strHour[i], xOffset + 70, y);		// Stunde
 			} else {
-				tft.fillRect(90, y, 30, 21, TFT_BLACK);
+				tft.fillRect(xOffset + 70, y, 30, 21, TFT_BLACK);
 			}
-			tft.drawString(":", 120, y);
-			if (strMinute[i].substring(0,1) != " ") {
-				tft.drawString(strMinute[i], 130, y);
+			tft.drawString(":", xOffset + 98, y);					// :
+			if (strMinute[i].substring(0,1) != " ") {			
+				tft.drawString(strMinute[i], xOffset + 110, y);		// Minute
 			} else {
-				tft.fillRect(130, y, 30, 21, TFT_BLACK);
+				tft.fillRect(xOffset + 110, y, 30, 21, TFT_BLACK);
 			}
-			tft.drawString(" : ", 158, y);
+			tft.drawString(" : ", xOffset + 138, y);				// :
 			if (strDay[i].substring(0,1) != " ") {
-				tft.drawString(strDay[i], 180, y);
+				tft.drawString(strDay[i], xOffset + 160, y);		// Tag
 			} else {
-				tft.fillRect(180, y, 320 - 190, 21, TFT_BLACK);
+				tft.fillRect(xOffset + 160, y, 75, 18, TFT_BLACK);
 			}
 			oldString[i] = strWakupTime[i];
 		}	
@@ -656,16 +617,16 @@ void showWakeUpTime(bool _bForce) {
 // -----------------------------------------------------------------------------------------------------
 void showTime(struct tm _actTimeinfo, bool _bForce) {
 	static uint16_t u16State = 0;
-	static String strZeitOld = " ";
-
-	uint16_t spriteWidth = tftWidth - 84;
-	uint16_t spriteHigth = 85;
-	uint16_t spriteYPos  = yMiddle + hSpace;
-	uint16_t spriteXPos  = 76;	
+	static tm tmTimeOld;
+ 
+	uint16_t spriteWidth = tftWidth - (4 * hSpace);
+	uint16_t spriteHigth = 81;
+	uint16_t spriteYPos  = yMiddle + (hSpace / 2);
+	uint16_t spriteXPos  = tftWidth - spriteWidth - (2 * hSpace);	
 
 	char str[8];
 	String strZeit;
-	String strInfo = "wait for NTP";
+	String strInfo = "wait for NTP and weather";
 
 	switch (u16State)  	{
 		case 0: 	// init time if ntp call is ready for the first time
@@ -676,7 +637,7 @@ void showTime(struct tm _actTimeinfo, bool _bForce) {
 			actTimeToShow.fillSprite(TFT_BLACK);
 
 			actTimeToShow.setTextColor(TFT_YELLOW);
-			actTimeToShow.drawRightString(strInfo, spriteWidth - 10, (spriteHigth / 2) - 14, 1);
+			actTimeToShow.drawCentreString(strInfo, spriteWidth / 2, (spriteHigth / 2), 1);
 			actTimeToShow.pushSprite(spriteXPos, spriteYPos);			// show sprite at screen
 			u16State = 5;
 			break;
@@ -694,7 +655,7 @@ void showTime(struct tm _actTimeinfo, bool _bForce) {
 			u16State = 5;
 			break;
 		case 10: 	// wait for a new minute (seccond == 0)
-			if ((_actTimeinfo.tm_sec == 0) || _bForce) {
+			if ((_actTimeinfo.tm_sec == 0) || _bForce || (tmTimeOld.tm_min != _actTimeinfo.tm_min)) {
 				u16State = 20;
 			}
 			break;
@@ -707,17 +668,16 @@ void showTime(struct tm _actTimeinfo, bool _bForce) {
 			actTimeToShow.setFreeFont(TimeFont);
 			
 			// clear actual time
-			actTimeToShow.setTextColor(TFT_BLACK);
-			actTimeToShow.drawRightString(strZeitOld, spriteWidth, 0, 1);
+			actTimeToShow.fillSprite(TFT_BLACK);
 			
 			// write new time
 			actTimeToShow.setTextColor(TFT_YELLOW);
-			actTimeToShow.drawRightString(strZeit, spriteWidth, 0, 1);
+			actTimeToShow.drawCentreString(strZeit, spriteWidth / 2, 0, 1);
 			
 			// show sprite at screen
 			actTimeToShow.pushSprite(spriteXPos, spriteYPos);
 
-			strZeitOld = strZeit;
+			tmTimeOld = _actTimeinfo;
 			u16State = 30;
 			break;
 		case 30: 	// wait for seccond != 0
@@ -818,7 +778,7 @@ void initNetwork(void) {
 	} else {
 		tft.drawString(".. WLan error !!", 10, 40);
 		tft.drawString(".. ESP Reset !!", 10, 70);
-		delay(5000);
+		delay(2000);
 		while (true) {;}
 	}
 }
@@ -984,7 +944,7 @@ void getActualWeather(void) {
 
 void decodeCurrentWeather(String _WetterDaten) {
 	DynamicJsonDocument jsonWeatherToday(900);
-
+	
 	Serial.println(TraceTime() + "decodeCurrentWeather");
 	
 	DeserializationError error = deserializeJson(jsonWeatherToday, _WetterDaten);
@@ -1004,28 +964,28 @@ void decodeCurrentWeather(String _WetterDaten) {
 		strWeatherToday  = jsonWeatherToday["weather"][0]["description"].as<String>();
 		strIconToday     = jsonWeatherToday["weather"][0]["icon"].as<String>();
 
-		Serial.println("----------------------------------------------");
-		Serial.print("Stadt        : ");
+		Serial.println(F("----------------------------------------------"));
+		Serial.print(F("Stadt        : "));
 		Serial.println(strCityNameToday);
-		Serial.print("Aktuelle Temp: ");
+		Serial.print(F("Aktuelle Temp: "));
 		Serial.print(tempToday);
-		Serial.println("°C");
-		Serial.print("Temp (Min)   : ");
+		Serial.println(F("°C"));
+		Serial.print(F("Temp (Min)   : "));
 		Serial.print(tempMinToday);
-		Serial.println("°C");
-		Serial.print("Temp (Max)   : ");
+		Serial.println(F("°C"));
+		Serial.print(F("Temp (Max)   : "));
 		Serial.print(tempMaxToday);
-		Serial.println("°C");
-		Serial.print("Feuchtigkeit : ");
+		Serial.println(F("°C"));
+		Serial.print(F("Feuchtigkeit : "));
 		Serial.print(humidityToday);
-		Serial.println("%");
-		Serial.print("Wetter       : ");
+		Serial.println(F("%"));
+		Serial.print(F("Wetter       : "));
 		Serial.println(strWeatherToday);
-		Serial.print("Icon Name    : ");
+		Serial.print(F("Icon Name    : "));
 		Serial.println(strIconToday);
-		Serial.println("----------------------------------------------");
+		Serial.println(F("----------------------------------------------"));
 
-		Serial.print("memory used : ");
+		Serial.print(F("memory used : "));
 		Serial.println(jsonWeatherToday.memoryUsage());
 	}
 }
@@ -1040,8 +1000,10 @@ void getWeatherForcast(void) {
 }
 
 void decodeWeatherForcast(String _WetterDaten) {
+	Serial.println(String("Free Heap Size - ") + ESP.getFreeHeap());
 	DynamicJsonDocument jsonWeatherForecast(2500);
-
+	Serial.println(String("Free Heap Size - ") + ESP.getFreeHeap());
+	
 	uint16_t u16Count = 0;
 	time_t ForecastTime;
 	char strData[30];
@@ -1054,6 +1016,7 @@ void decodeWeatherForcast(String _WetterDaten) {
 	if (error) {
 		Serial.print(TraceTime() + "deserializeJson failed - ");
 		Serial.println(error.c_str());
+		showState(error.c_str());
 		return;
 	} else {
 		// get data from JSON-tree 
@@ -1080,28 +1043,28 @@ void decodeWeatherForcast(String _WetterDaten) {
 
 			strcpy(&cDay[i][0], WeekDay[weekday(ForecastTime) - 1]);
 
-			Serial.println("----------------------------------------------");
+			Serial.println(F("----------------------------------------------"));
 			sprintf(strData, "Datum        : %s %02d.%02d", WeekDay[weekday(ForecastTime) - 1], day(ForecastTime), month(ForecastTime));
 			Serial.println(strData);
-			Serial.print("Stadt        : ");
+			Serial.print(F("Stadt        : "));
 			Serial.println(strCityNameForecast);
-			Serial.print("Tages Temp   : ");
+			Serial.print(F("Tages Temp   : "));
 			Serial.print(tempDayForecast[i]);
-			Serial.println("°C");
-			Serial.print("Temp (Min)   : ");
+			Serial.println(F("°C"));
+			Serial.print(F("Temp (Min)   : "));
 			Serial.print(tempMinForecast[i]);
-			Serial.println("°C");
-			Serial.print("Temp (Max)   : ");
+			Serial.println(F("°C"));
+			Serial.print(F("Temp (Max)   : "));
 			Serial.print(tempMaxForecast[i]);
-			Serial.println("°C");
-			Serial.print("Feuchtigkeit : ");
+			Serial.println(F("°C"));
+			Serial.print(F("Feuchtigkeit : "));
 			Serial.print(humidityForecast[i]);
-			Serial.println("%");
-			Serial.print("Wetter       : ");
+			Serial.println(F("%"));
+			Serial.print(F("Wetter       : "));
 			Serial.println(strWeatherForecast[i]);
-			Serial.print("Icon Name    : ");
+			Serial.print(F("Icon Name    : "));
 			Serial.println(strIconForecast[i]);
-			Serial.println("----------------------------------------------");
+			Serial.println(F("----------------------------------------------"));
 		}
 		
 		// clear middle area
@@ -1116,10 +1079,13 @@ void decodeWeatherForcast(String _WetterDaten) {
 			tft.drawCentreString(String(cDay[i]), 8 + ((i * 80) + 32), yMiddle + 8, 1);
 			showWeather(strIconForecast[i], 8 + (i * 80), yMiddle + 30);
 			tft.drawCentreString(String(tempMaxForecast[i], 0) + String("'C"), 8 + ((i * 80) + 32), yMiddle + 8 + 64 + 24, 1);
+			tft.drawCentreString(String(humidityForecast[i], 0) + String("%"), 8 + ((i * 80) + 32), yMiddle + 8 + 64 + 48, 1);
 		}
 		
-		Serial.print("memory used : ");
+		Serial.print(F("memory used : "));
 		Serial.println(jsonWeatherForecast.memoryUsage());
+
+		showState(convertStringToGerman(String("Wetter in ") + strCityNameForecast));
 	}
 }
 
@@ -1169,5 +1135,39 @@ String TraceTime(void) {
 String convertStringToGerman(String strData) {
 	strData.replace(String("ß"), String("&"));
 	strData.replace(String("ü"), String("("));
+	strData.replace(String("°"), String("'"));
 	return strData;
+}
+
+void initOTA(void) {
+	ArduinoOTA.onStart([]() {  
+	 	tft.fillScreen(TFT_BLACK);
+		tft.setFreeFont(DefaultFont);
+		tft.setTextColor(TFT_WHITE, TFT_BLACK);
+		tft.setCursor(0,30);
+		tft.println(F(".. Start Update"));
+	});
+ 	ArduinoOTA.onEnd([]() {  
+		tft.println();
+		tft.println(F(".. Restart System"));
+		delay(2000);
+  	});
+	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+		static uint16_t u16FirstCall = true;
+		static uint16_t u16Count = 0;
+		if (u16FirstCall) {
+			tft.print(F(".. Progress: "));
+			u16FirstCall = false;
+		} else {
+			if (u16Count++ == 25) {
+				tft.print(".");
+				u16Count = 0;
+			}
+			if (total == progress) {
+				tft.println();
+				tft.print(F(".. Update ready"));
+			}
+		}
+	});
+	ArduinoOTA.begin(); 	
 }

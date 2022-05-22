@@ -7,9 +7,9 @@
 
 #pragma once
 typedef struct {
-    bool (*_cbMenue)(void);     // Menüfunktion
-    String _MenueName;          // Menüname
-    bool _bLastItem;            // Ende der Liste
+    bool (*_cbMenue)(void);     // menue function
+    String _MenueName;          // menue name
+    bool _bLastItem;            // end of menu list
 } menue_t;
 
 class clMenue {

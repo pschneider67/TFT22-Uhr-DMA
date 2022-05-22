@@ -28,14 +28,14 @@ void clIn::Init(stInput _Param) {
     pinMode(Param.pin, INPUT);
 
     if (Param.irq) {
-        noInterrupts();   // Interrupts sperren
+        noInterrupts();   // disable irq 
         if (Param.polarity == POLARITY::POS) {
             attachInterrupt(digitalPinToInterrupt(Param.pin), Param.cb, Param.mode);
         } else {
             attachInterrupt(digitalPinToInterrupt(Param.pin), Param.cb, Param.mode);
         }
         Serial.println("** install irq for input " + (String)Param.pin);
-        interrupts();     // Interrups freigeben
+        interrupts();     // enable irq
     }
 }
 
@@ -59,7 +59,7 @@ void clIn::runState(void) {
             break;
         case 10:
             if (!bStatus) {
-                Serial.println("** Taster gedrückt");
+                Serial.println(F("** switch active"));
                 u16Status = 0;
             } else if (millis() > (u32Timer + Param.entprellzeit)) {
                 bShort = true;

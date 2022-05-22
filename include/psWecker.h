@@ -17,9 +17,9 @@ enum class WOCHEN_TAG: uint16_t {
     DO = 4,
     FR = 5,
     SA = 6,
-    ALL = 7,        // jeder Tag
-    AT = 8,         // Arbeitstage (MO - FR)
-    WE = 9          // Wochenende (SA und SO)
+    ALL = 7,        // alarm active at all day
+    AT = 8,         // alarm active only at work days (MO - FR)
+    WE = 9          // alarm active anly at weekend (SA und SO)
 };
 
 struct stWeckZeit {
