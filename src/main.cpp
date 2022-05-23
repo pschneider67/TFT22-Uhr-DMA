@@ -46,7 +46,9 @@ TFT_eSprite actTimeSecToShow = TFT_eSprite(&tft);	// sprite to show actual time 
 
 // use openweather setup
 String ApiKey = API_KEY;
-String CityId = CITY_KEY; 
+String CityName1 = CITY_NAME_1;
+String CityName2 = CITY_NAME_2;
+
 const char Server[] PROGMEM = "api.openweathermap.org";
 String strIcon;
 
@@ -115,15 +117,16 @@ weck_daten_t WeckerDaten[MAX_WECKER] = {
 
 bool shouldSaveConfig = false;
 
-menue_t hmMenue[7] = { 
+menue_t hmMenue[8] = { 
 //   function                   menue string             last item
 	{runMainMenue,    	String("Uhrzeit / Weckzeiten"),  false},		// 0
 	{runWakeUpTime_1, 	String("Weckzeit 1 einstellen"), false},		// 1	
 	{runWakeUpTime_2, 	String("Weckzeit 2 einstellen"), false},		// 2
-	{runWeatherForcast, String("Wettervorschau"),        false},		// 3
-	{runSetWakeUpTime, 	String("Weckzeiten einsellen"),  false},		// 4
-	{runState,        	String("Statusanzeige"),         false},		// 5
-	{runDeleteFile,   	String("Delete Konfiguration"),   true}			// 6
+	{runWeatherForcast, String("Wettervorschau 1"),      false},		// 3
+	{runWeatherForcast, String("Wettervorschau 2"),      false},		// 4
+	{runSetWakeUpTime, 	String("Weckzeiten einsellen"),  false},		// 5
+	{runState,        	String("Statusanzeige"),         false},		// 6
+	{runDeleteFile,   	String("Delete Konfiguration"),   true}			// 7
 };
 
 // menue control
@@ -232,9 +235,9 @@ void loop(void) {
 			}
 		case 1:
 		case 2:
-		case 4:
 		case 5:
 		case 6:
+		case 7:
 			showTime(timeinfo, false);
 			if (bGetWeather) {
 				getActualWeather();	
@@ -243,6 +246,7 @@ void loop(void) {
 			}	
 			break;
 		case 3:
+		case 4:
 			break;
 	}		   	
 }
@@ -934,7 +938,7 @@ String getJsonDataFromWeb (String _Server, String _Url) {
 // get weather data from internet - https:\\openweathermap.org
 // -----------------------------------------------------------------------------------
 void getActualWeather(void) {
-	String strUrl = "GET /data/2.5/weather?id=" + CityId + "&appid=" + ApiKey + "&lang=de&mode=json&units=metric";
+	String strUrl = "GET /data/2.5/weather?q=" + CityName1 + "&appid=" + ApiKey + "&lang=de&mode=json&units=metric";
 	
 	Serial.println(TraceTime() + "getActualWeather");
 	Serial.println(TraceTime() + strUrl);
@@ -991,7 +995,13 @@ void decodeCurrentWeather(String _WetterDaten) {
 }
 
 void getWeatherForcast(void) {
-	String strUrl = "GET /data/2.5/forecast/daily?id=" + CityId + "&appid=" + ApiKey + "&cnt=4&lang=de&mode=json&units=metric";
+	String strUrl;
+	
+	if (HMenue.getAktualMenue() == 3) {
+		strUrl = "GET /data/2.5/forecast/daily?q=" + CityName1 + "&appid=" + ApiKey + "&cnt=4&lang=de&mode=json&units=metric";
+	} else {
+		strUrl = "GET /data/2.5/forecast/daily?q=" + CityName2 + "&appid=" + ApiKey + "&cnt=4&lang=de&mode=json&units=metric";
+	}
 	
 	Serial.println(TraceTime() + "getWeatherForcast");
 	Serial.println(TraceTime() + strUrl);
