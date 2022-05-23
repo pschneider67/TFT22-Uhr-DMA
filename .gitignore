@@ -4,7 +4,5 @@
 .vscode/launch.json
 .vscode/ipch
 config.h
-*.ttf
-fontconvert
-*.png
+/include/fonts
 /include/wetter
