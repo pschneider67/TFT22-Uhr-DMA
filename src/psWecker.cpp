@@ -8,30 +8,32 @@
 #include "Arduino.h"
 #include "TFT22-Uhr.h"
 
-uint16_t clWecken::sWeckerNr = 0;
-clWecken *clWecken::pclWecken[MAX_WECKER];
+uint16_t clAlarm::sAlarmNumber = 0;
+clAlarm *clAlarm::pclAlarm[MAX_WECKER];
 
-clWecken::clWecken (tm *_AktuelleZeit, clOut *_Summer, clIn *_Taster, stWeckZeit *_stWz) {
-    u16WeckerNr = sWeckerNr++;          // count instances
+clAlarm::clAlarm (tm *_AktuelleZeit, clOut *_buzzer, clIn *_switch, stAlarmTime *_stWz) {
+    u16AlarmNumber = sAlarmNumber++;        // count instances
 
-    if (u16WeckerNr < MAX_WECKER) {     // save pointer to instance
-        pclWecken[u16WeckerNr] = this;
+    if (u16AlarmNumber < MAX_WECKER) {      // save pointer to instance
+        pclAlarm[u16AlarmNumber] = this;
     } 
 
-    Summer = _Summer;
-    Taster = _Taster;
+    buzzer = _buzzer;
+    cSwitch = _switch;
     AktuelleZeit = _AktuelleZeit;
                 
     bAktive = false;
     bTagOk = false;
     bRun = false;
-    bStelleStunden = false;
-    bStelleMinuten = false;
-    bStelleTage = false;
+    bSetAlarmHour = false;
+    bSetAlarmMinutes = false;
+    bSetAlarmDay = false;
 
     u16Status = 0;
-    u16StatusWeckzeit = 0;
+    u16StatusAlarmTime = 0;
     u16StatusWzAnzeige = 0;
+    u16StatusAlarm = 0;
+    u16StatusAlarmOld = 10;
     u16InkZeit = 0;
     u16InkTage = 0;
     u16Count = 0; 
@@ -39,53 +41,53 @@ clWecken::clWecken (tm *_AktuelleZeit, clOut *_Summer, clIn *_Taster, stWeckZeit
     setTime(_stWz);
 }
 
-void clWecken::setTime(stWeckZeit *_WeckZeit) {
-    WeckZeit.u16Minute = _WeckZeit->u16Minute;
-    WeckZeit.u16Stunde = _WeckZeit->u16Stunde;
-    WeckZeit.Wochentag = _WeckZeit->Wochentag;
+void clAlarm::setTime(stAlarmTime *_AlarmTime) {
+    AlarmTime.u16Minute = _AlarmTime->u16Minute;
+    AlarmTime.u16Stunde = _AlarmTime->u16Stunde;
+    AlarmTime.Wochentag = _AlarmTime->Wochentag;
 }
 
-String clWecken::getWeckStunde(void) {
-    return String(WeckZeit.u16Stunde);
+String clAlarm::getWeckStunde(void) {
+    return String(AlarmTime.u16Stunde);
 }
 
-String clWecken::getWeckMinute(void) {
-    return String(WeckZeit.u16Minute);
+String clAlarm::getWeckMinute(void) {
+    return String(AlarmTime.u16Minute);
 }
 
-String clWecken::getWeckTage(void) {
-    uint16_t WeckTage = (uint16_t)WeckZeit.Wochentag;
+String clAlarm::getWeckTage(void) {
+    uint16_t WeckTage = (uint16_t)AlarmTime.Wochentag;
 
     return String(WeckTage);
 }
 
-String clWecken::getTimeString(void) {
+String clAlarm::getTimeString(void) {
     char cStr[40];
    
     if (bAktive) {
-        sprintf(cStr, "W%u: * %02u:%02u : %s", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute, _WeekDay[(uint16_t)WeckZeit.Wochentag]);
+        sprintf(cStr, "W%u: * %02u:%02u : %s", u16AlarmNumber, AlarmTime.u16Stunde, AlarmTime.u16Minute, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
     } else {
-        sprintf(cStr, "W%u:   %02u:%02u : %s", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute, _WeekDay[(uint16_t)WeckZeit.Wochentag]);
+        sprintf(cStr, "W%u:   %02u:%02u : %s", u16AlarmNumber, AlarmTime.u16Stunde, AlarmTime.u16Minute, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
     }
 
     switch (u16StatusWzAnzeige) { 
         case 0:     // Zeitanzeige komplett
-            if (bStelleStunden) {
+            if (bSetAlarmHour) {
                 u32Timer1 = millis();
                 u16StatusWzAnzeige = 10;
-            } else if (bStelleMinuten) {
+            } else if (bSetAlarmMinutes) {
                 u32Timer1 = millis();
                 u16StatusWzAnzeige = 30;
-            } else if (bStelleTage) {
+            } else if (bSetAlarmDay) {
                 u32Timer1 = millis();
                 u16StatusWzAnzeige = 50;
             }
             break;
         case 10:    // hour off 
             if (bAktive) {
-                sprintf(cStr, "W%u: *   :%02u : %s", u16WeckerNr + 1, WeckZeit.u16Minute, _WeekDay[(uint16_t)WeckZeit.Wochentag]);
+                sprintf(cStr, "W%u: *   :%02u : %s", u16AlarmNumber, AlarmTime.u16Minute, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
             } else {
-                sprintf(cStr, "W%u:     :%02u : %s", u16WeckerNr + 1, WeckZeit.u16Minute, _WeekDay[(uint16_t)WeckZeit.Wochentag]);
+                sprintf(cStr, "W%u:     :%02u : %s", u16AlarmNumber, AlarmTime.u16Minute, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
             }
             if (millis() > (u32Timer1 + 300)) {
                 u32Timer1 = millis();
@@ -99,9 +101,9 @@ String clWecken::getTimeString(void) {
             break;
         case 30:    // minutes off
             if (bAktive) {
-                sprintf(cStr, "W%u: * %02u:   : %s", u16WeckerNr + 1, WeckZeit.u16Stunde, _WeekDay[(uint16_t)WeckZeit.Wochentag]);
+                sprintf(cStr, "W%u: * %02u:   : %s", u16AlarmNumber, AlarmTime.u16Stunde, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
             } else {
-                sprintf(cStr, "W%u:   %02u:   : %s", u16WeckerNr + 1, WeckZeit.u16Stunde, _WeekDay[(uint16_t)WeckZeit.Wochentag]);
+                sprintf(cStr, "W%u:   %02u:   : %s", u16AlarmNumber, AlarmTime.u16Stunde, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
             }
             if (millis() > (u32Timer1 + 300)) {
                 u32Timer1 = millis();
@@ -115,9 +117,9 @@ String clWecken::getTimeString(void) {
             break;
         case 50:    // week day off
             if (bAktive) {
-                sprintf(cStr, "W%u: * %02u:%02u :   ", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute);
+                sprintf(cStr, "W%u: * %02u:%02u :   ", u16AlarmNumber, AlarmTime.u16Stunde, AlarmTime.u16Minute);
             } else {
-                sprintf(cStr, "W%u:   %02u:%02u :   ", u16WeckerNr + 1, WeckZeit.u16Stunde, WeckZeit.u16Minute);
+                sprintf(cStr, "W%u:   %02u:%02u :   ", u16AlarmNumber, AlarmTime.u16Stunde, AlarmTime.u16Minute);
             }
             if (millis() > (u32Timer1 + 300)) {
                 u32Timer1 = millis();
@@ -137,70 +139,67 @@ String clWecken::getTimeString(void) {
     return String(cStr);
 }
 
-bool clWecken::stelleWeckzeit(void) {
+bool clAlarm::setNewAlarmTime(void) {
     bool bResult = false;
 
-    switch (u16StatusWeckzeit) {
+    switch (u16StatusAlarmTime) {
         case 0:     // wait for switch
-            bStelleStunden = false;
-            bStelleMinuten = false;
-            bStelleTage = false;
-            if (Taster->StatusLong()) {
-                u16StatusWeckzeit = 10;
+            bSetAlarmHour = false;
+            bSetAlarmMinutes = false;
+            bSetAlarmDay = false;
+            if (cSwitch->Status()) {
+                bSetAlarmHour = true;
+                u16StatusAlarmTime = 10;
             }
             break;
         case 10:    // start function
-            bStelleStunden = true;    
-            u16StatusWeckzeit = 15;
-            break;              
-        case 15:
-            if (!Taster->StatusLong()) {
-                u16StatusWeckzeit = 20;
+            if (!cSwitch->Status()) {
+                u16StatusAlarmTime = 20;
             }   
             break; 
         case 20:
-            if (inkZeit(&WeckZeit.u16Stunde, 24)) {
-                bStelleStunden = false;
-                bStelleMinuten = true;
-                u16StatusWeckzeit = 25;
+            if (inkZeit(&AlarmTime.u16Stunde, 24)) {
+                bSetAlarmHour = false;
+                bSetAlarmMinutes = true;
+                u16StatusAlarmTime = 25;
             }
             break;
         case 25:
-            if (inkZeit(&WeckZeit.u16Minute, 60)) {
-                bStelleStunden = false;
-                bStelleMinuten = false;
-                bStelleTage = true;
-                u16StatusWeckzeit = 30;
+            if (inkZeit(&AlarmTime.u16Minute, 60)) {
+                bSetAlarmHour = false;
+                bSetAlarmMinutes = false;
+                bSetAlarmDay = true;
+                u16StatusAlarmTime = 30;
             }
             break;
         case 30:
-            if (inkZeit((uint16_t*)&WeckZeit.Wochentag, 10)) {
-                bStelleTage = false;
+            if (inkZeit((uint16_t*)&AlarmTime.Wochentag, 10)) {
+                bSetAlarmDay = false;
                 bResult = true;
-                u16StatusWeckzeit = 0;
+                u16StatusAlarmTime = 0;
             }
             break;
         default:
             bRun = 0;
-            u16StatusWeckzeit = 0;
+            u16StatusAlarmTime = 0;
             break;
     }
     return bResult;
 }
 
-void clWecken::Start(void) {
+void clAlarm::Start(void) {
     bAktive = true;     
 }
 
-void clWecken::Stop(void) {
+void clAlarm::Stop(void) {
     bAktive = false;     
 }
 
-bool clWecken::getStatus(void) {
+bool clAlarm::getStatus(void) {
     return bAktive;
 }
 
-bool clWecken::inkZeit (uint16_t *_u16Zeit, uint16_t _u16Grenze) {
+bool clAlarm::inkZeit (uint16_t *_u16Zeit, uint16_t _u16Grenze) {
     bool bResult = false;
 
     switch (u16InkZeit) {
@@ -209,7 +208,7 @@ bool clWecken::inkZeit (uint16_t *_u16Zeit, uint16_t _u16Grenze) {
             u16InkZeit = 5;
             break;
         case 5:
-            if (Taster->Status()) {
+            if (cSwitch->Status()) {
                 if (++*_u16Zeit == _u16Grenze) {
                     *_u16Zeit = 0;
                 }
@@ -227,7 +226,7 @@ bool clWecken::inkZeit (uint16_t *_u16Zeit, uint16_t _u16Grenze) {
             }   
             break;
         case 10:
-            if (!Taster->Status()) {
+            if (!cSwitch->Status()) {
                 u32Timer2 = millis();
                 u16InkZeit = 0;
             } else if (millis() > (u32Timer2 + 1000)) {
@@ -249,15 +248,49 @@ bool clWecken::inkZeit (uint16_t *_u16Zeit, uint16_t _u16Grenze) {
     return bResult;
 }
 
+bool clAlarm::setStartStopAlarm(void) {
+    bool bResult = false;
+
+    if (u16StatusAlarm != u16StatusAlarmOld) {
+		Serial.println(TraceTime() + String("clAlarm::setStartStopAlarm ") + String(u16AlarmNumber) + " - " + String(u16StatusAlarm));
+		u16StatusAlarmOld = u16StatusAlarm;
+	}
+
+    switch (u16StatusAlarm) {
+        case 0:     // wait for switch
+            if (!cSwitch->Status()) {
+                u16StatusAlarm = 10;
+            }
+            break;
+        case 10:
+            if (cSwitch->Status()) {
+                bAktive = !bAktive;
+                u16StatusAlarm = 20;
+            }
+            break;
+        case 20:    // start function
+            if (!cSwitch->Status()) {
+                bResult = true;
+                u16StatusAlarm = 10;
+            }   
+            break; 
+        default:
+            bResult = true;
+            u16StatusAlarm = 0;
+            break;
+    }
+    return bResult;
+}
+
 // ---------------------------------------------------------------------------------------------------
 // static
 // ---------------------------------------------------------------------------------------------------
                                                                                                                                                                                                                          
 // ---------------------------------------------------------------------------------------------------
 // activate alarm time by pushing a switch
-// to start push switch a long time
+// to start push switch for a long time
 // ---------------------------------------------------------------------------------------------------
-bool clWecken::enableWakeUpTime(clIn *_Taster) {
+bool clAlarm::enableAlarmTime(clIn *_switch) {
    	static uint16_t u16Status = 0;
 	static uint16_t u16Count = 0;
 	static uint32_t u32AktiveZeit = 0;
@@ -265,19 +298,19 @@ bool clWecken::enableWakeUpTime(clIn *_Taster) {
 	bool bResult = false;
 
 	switch(u16Status) {
-		case 0:
+		case 0:                 // wait for function start
 			bResult = true;
-			if (_Taster->StatusLong()) {
+			if (_switch->StatusLong()) {
 				u16Status = 10;
 			}
 			break;
 		case 10:
-            if (_Taster->StatusLong()) {
-                if (pclWecken[0]->bAktive && pclWecken[1]->bAktive) {
+            if (_switch->StatusLong()) {
+                if (pclAlarm[0]->bAktive && pclAlarm[1]->bAktive) {
                     u16Count = 3;
-                } else if (pclWecken[0]->bAktive) {
+                } else if (pclAlarm[0]->bAktive) {
                     u16Count = 1;
-                } else if (pclWecken[1]->bAktive) {
+                } else if (pclAlarm[1]->bAktive) {
                     u16Count = 2;
                 } else {
                     u16Count = 0;
@@ -289,26 +322,26 @@ bool clWecken::enableWakeUpTime(clIn *_Taster) {
 			}
 			break;
 		case 20:
-			if (_Taster->Status()) {
+			if (_switch->Status()) {
 				switch(u16Count) {
 					case 0: 
-						pclWecken[0]->Start(); 
-						pclWecken[1]->Stop();  
+						pclAlarm[0]->Start(); 
+						pclAlarm[1]->Stop();  
 						u16Count++;   
 						break;
 					case 1: 
-						pclWecken[0]->Stop();  
-						pclWecken[1]->Start(); 
+						pclAlarm[0]->Stop();  
+						pclAlarm[1]->Start(); 
 						u16Count++;   
 						break;
 					case 2:	
-						pclWecken[0]->Start(); 
-						pclWecken[1]->Start(); 
+						pclAlarm[0]->Start(); 
+						pclAlarm[1]->Start(); 
 						u16Count++;   
 						break;
 					case 3:	
-						pclWecken[0]->Stop();  
-						pclWecken[1]->Stop();  
+						pclAlarm[0]->Stop();  
+						pclAlarm[1]->Stop();  
 						u16Count = 0; 
 						break;
 					default: 
@@ -324,7 +357,7 @@ bool clWecken::enableWakeUpTime(clIn *_Taster) {
 			}
 			break;
 		case 30:
-			if (!_Taster->Status()) {
+			if (!_switch->Status()) {
                 u32AktiveZeit = millis();
 				u16Status = 20;
 			}
@@ -339,81 +372,81 @@ bool clWecken::enableWakeUpTime(clIn *_Taster) {
 // ---------------------------------------------------------------------------------------------------
 // check alarm time is running
 // ---------------------------------------------------------------------------------------------------
-void clWecken::Check(void) {
+void clAlarm::Check(void) {
     static uint16_t u16sCount = 0;
      
-    for (u16sCount = 0; u16sCount < sWeckerNr; u16sCount++) {
+    for (u16sCount = 0; u16sCount < sAlarmNumber; u16sCount++) {
         if (u16sCount >= MAX_WECKER) {
             break;
         }
 
-        pclWecken[u16sCount]->bTagOk = false;
+        pclAlarm[u16sCount]->bTagOk = false;
 
         // check alarm time is active
-        if (pclWecken[u16sCount]->WeckZeit.Wochentag == (WOCHEN_TAG)pclWecken[u16sCount]->AktuelleZeit->tm_wday) {
-            pclWecken[u16sCount]->bTagOk = true;        
-        } else if (pclWecken[u16sCount]->WeckZeit.Wochentag == WOCHEN_TAG::ALL) {
-            pclWecken[u16sCount]->bTagOk = true;
-        } else if (pclWecken[u16sCount]->WeckZeit.Wochentag == WOCHEN_TAG::AT) {
-            if ((pclWecken[u16sCount]->AktuelleZeit->tm_wday > (uint16_t)WOCHEN_TAG::SO) && 
-                (pclWecken[u16sCount]->AktuelleZeit->tm_wday < (uint16_t)WOCHEN_TAG::SA)) {
-                    pclWecken[u16sCount]->bTagOk = true;
+        if (pclAlarm[u16sCount]->AlarmTime.Wochentag == (WEEK_DAY)pclAlarm[u16sCount]->AktuelleZeit->tm_wday) {
+            pclAlarm[u16sCount]->bTagOk = true;        
+        } else if (pclAlarm[u16sCount]->AlarmTime.Wochentag == WEEK_DAY::ALL) {
+            pclAlarm[u16sCount]->bTagOk = true;
+        } else if (pclAlarm[u16sCount]->AlarmTime.Wochentag == WEEK_DAY::AT) {
+            if ((pclAlarm[u16sCount]->AktuelleZeit->tm_wday > (uint16_t)WEEK_DAY::SO) && 
+                (pclAlarm[u16sCount]->AktuelleZeit->tm_wday < (uint16_t)WEEK_DAY::SA)) {
+                    pclAlarm[u16sCount]->bTagOk = true;
             }
-        } else if (pclWecken[u16sCount]->WeckZeit.Wochentag == WOCHEN_TAG::WE) {
-            if ((pclWecken[u16sCount]->AktuelleZeit->tm_wday == (uint16_t)WOCHEN_TAG::SO) ||
-                (pclWecken[u16sCount]->AktuelleZeit->tm_wday == (uint16_t)WOCHEN_TAG::SA)) {
-                    pclWecken[u16sCount]->bTagOk = true;
+        } else if (pclAlarm[u16sCount]->AlarmTime.Wochentag == WEEK_DAY::WE) {
+            if ((pclAlarm[u16sCount]->AktuelleZeit->tm_wday == (uint16_t)WEEK_DAY::SO) ||
+                (pclAlarm[u16sCount]->AktuelleZeit->tm_wday == (uint16_t)WEEK_DAY::SA)) {
+                    pclAlarm[u16sCount]->bTagOk = true;
             }
         }
      
         // switch off alarm sound
-        if (pclWecken[u16sCount]->Taster->Status()) {
-            pclWecken[u16sCount]->u16Status = 30;
+        if (pclAlarm[u16sCount]->cSwitch->Status()) {
+            pclAlarm[u16sCount]->u16Status = 30;
         }
 
-        switch (pclWecken[u16sCount]->u16Status) {
+        switch (pclAlarm[u16sCount]->u16Status) {
             case 0:
-                if (pclWecken[u16sCount]->bTagOk && pclWecken[u16sCount]->bAktive) {
-                    pclWecken[u16sCount]->u16Status = 5; 
+                if (pclAlarm[u16sCount]->bTagOk && pclAlarm[u16sCount]->bAktive) {
+                    pclAlarm[u16sCount]->u16Status = 5; 
                 }
                 break;
             case 5:
-                if (!pclWecken[u16sCount]->bTagOk || !pclWecken[u16sCount]->bAktive) {
-                    pclWecken[u16sCount]->u16Status = 0;     
-                } else if ((pclWecken[u16sCount]->WeckZeit.u16Minute == pclWecken[u16sCount]->AktuelleZeit->tm_min) && 
-                           (pclWecken[u16sCount]->WeckZeit.u16Stunde == pclWecken[u16sCount]->AktuelleZeit->tm_hour)) {
-                    pclWecken[u16sCount]->u16Count = 0;
-                    pclWecken[u16sCount]->u32Delay = millis();
-                    pclWecken[u16sCount]->Summer->On();
-                    pclWecken[u16sCount]->u16Status = 10;
+                if (!pclAlarm[u16sCount]->bTagOk || !pclAlarm[u16sCount]->bAktive) {
+                    pclAlarm[u16sCount]->u16Status = 0;     
+                } else if ((pclAlarm[u16sCount]->AlarmTime.u16Minute == pclAlarm[u16sCount]->AktuelleZeit->tm_min) && 
+                           (pclAlarm[u16sCount]->AlarmTime.u16Stunde == pclAlarm[u16sCount]->AktuelleZeit->tm_hour)) {
+                    pclAlarm[u16sCount]->u16Count = 0;
+                    pclAlarm[u16sCount]->u32Delay = millis();
+                    pclAlarm[u16sCount]->buzzer->On();
+                    pclAlarm[u16sCount]->u16Status = 10;
                 }
                 break;
             case 10:
-                if (millis() > (pclWecken[u16sCount]->u32Delay + 500)) {
-                    pclWecken[u16sCount]->u32Delay = millis();
-                    pclWecken[u16sCount]->Summer->Off();
-                    pclWecken[u16sCount]->u16Status = 20;
+                if (millis() > (pclAlarm[u16sCount]->u32Delay + 500)) {
+                    pclAlarm[u16sCount]->u32Delay = millis();
+                    pclAlarm[u16sCount]->buzzer->Off();
+                    pclAlarm[u16sCount]->u16Status = 20;
                 }
                 break;
             case 20:
-                if (pclWecken[u16sCount]->u16Count >= 300) {
-                    pclWecken[u16sCount]->u16Status = 30;
-                } else if (millis() > (pclWecken[u16sCount]->u32Delay + 500)) {
-                    pclWecken[u16sCount]->u16Count++;
-                    pclWecken[u16sCount]->u32Delay = millis();
-                    pclWecken[u16sCount]->Summer->On();
-                    pclWecken[u16sCount]->u16Status = 10;
+                if (pclAlarm[u16sCount]->u16Count >= 300) {
+                    pclAlarm[u16sCount]->u16Status = 30;
+                } else if (millis() > (pclAlarm[u16sCount]->u32Delay + 500)) {
+                    pclAlarm[u16sCount]->u16Count++;
+                    pclAlarm[u16sCount]->u32Delay = millis();
+                    pclAlarm[u16sCount]->buzzer->On();
+                    pclAlarm[u16sCount]->u16Status = 10;
                 }
                 break;
             case 30:
-                pclWecken[u16sCount]->Summer->Off();
-                if (pclWecken[u16sCount]->WeckZeit.u16Minute != pclWecken[u16sCount]->AktuelleZeit->tm_min) {
-                    pclWecken[u16sCount]->u16Status = 0;
+                pclAlarm[u16sCount]->buzzer->Off();
+                if (pclAlarm[u16sCount]->AlarmTime.u16Minute != pclAlarm[u16sCount]->AktuelleZeit->tm_min) {
+                    pclAlarm[u16sCount]->u16Status = 0;
                 }
                 break;   
             default:
-                pclWecken[u16sCount]->Summer->Off();
-                pclWecken[u16sCount]->u16Status = 0;
+                pclAlarm[u16sCount]->buzzer->Off();
+                pclAlarm[u16sCount]->u16Status = 0;
                 break;
         }
     }

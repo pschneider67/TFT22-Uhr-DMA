@@ -42,7 +42,7 @@ void clIn::Init(stInput _Param) {
 void clIn::runState(void) {
 
     if (u16Status != u16StatusOld) {
-        Serial.println(String("Input " + String(u16InCount) + String(" Status - " + String(u16Status))));
+        //Serial.println(String("Input " + String(u16InCount) + String(" Status - " + String(u16Status))));
         u16StatusOld = u16Status;
     }
 

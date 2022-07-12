@@ -8,70 +8,79 @@
 #include "Arduino.h"
 #include "TFT22-Uhr.h"
 
-clMenue::clMenue(clIn *_MenueTaster, menue_t *_MenueArray, void (*_cbAnzeige)(String)) {
-    MenueTaster = _MenueTaster;
+clMenue::clMenue(clIn *_switch, menue_t *_MenueArray, void (*_cbAnzeige)(String)) {
+    Sw = _switch;
     MenueArray = _MenueArray;
     cbAnzeige = _cbAnzeige;
     u16MenueCount = 0;
+
+    u16RunStatus = 0;
+    u16RunStatusOld = 10;
 }
 
 uint16_t clMenue::getAktualMenue(void) {
     return u16MenueCount;
 }
 
-bool clMenue::Verwaltung(void) {
+bool clMenue::runMenue(void) {
     bool bResult = false;
-    static uint16_t u16Status = 0;
+    
+    if (u16RunStatus != u16RunStatusOld) {
+		Serial.println(TraceTime() + String("clMenue::runMenue - ") + String(u16RunStatus));
+		u16RunStatusOld = u16RunStatus;
+	}
 
     // call menue function
     // return "true" --> function is ready or not started yet
-    bMenueFertig = MenueArray[u16MenueCount]._cbMenue();
+    bFuncReady = MenueArray[u16MenueCount]._cbMenue();
 
-    switch (u16Status) {
+    switch (u16RunStatus) {
         case 0:     // init
-            if (!MenueTaster->Status()) { 
+            if (!Sw->Status()) { 
                 u16MenueCount = 0;                                  // actual menue number
                 cbAnzeige(MenueArray[u16MenueCount]._MenueName);    // show actual menue
-                u16Status = 10;
+                u16RunStatus = 10;
             }
             break;
         case 10:    // to start, push switch  for 2s
-            if (MenueTaster->StatusLong()) {
-                u16Status = 20;
+            if (bFuncReady && (Sw->StatusLong())) {
+                u16RunStatus = 20;
             } 
             break;
         case 20:    // set next meune from list
-            if (bMenueFertig) {
+            if (bFuncReady) {
                 if (MenueArray[u16MenueCount]._bLastItem) {
                     u16MenueCount = 0;
                 } else {
                     u16MenueCount++;
                 }
-                cbAnzeige(MenueArray[u16MenueCount]._MenueName);    // neuen Menüpunkt anzeigen
-                u16Status = 30;
+                cbAnzeige(MenueArray[u16MenueCount]._MenueName);    // show new menu text
+                u16RunStatus = 30;
+            } else {    // function is running
+                u16RunStatus = 50;
             } 
             break;
         case 30:    // wait for switch off
-            if (!MenueTaster->Status()) {
+            if (bFuncReady && (!Sw->Status())) {
                 u32Timer = millis();
-                u16Status = 40;
-            }
+                u16RunStatus = 40;
+            } 
             break;
-        case 40:    // wait for switch on aor timeout
-            if (MenueTaster->Status()) { 
-                u16Status = 20;
+        case 40:    // wait for switch on or timeout
+            if (Sw->Status()) { 
+                u16RunStatus = 20;
             } else if (millis() > (u32Timer + 3000)) {
-                u16Status = 50;
+                u16RunStatus = 50;
             } 
             break;
         case 50:
-            if (bMenueFertig) {
+            if (bFuncReady) {
                 bResult = true;
-                u16Status = 0;
+                u16RunStatus = 0;
             }
             break;
         default:
-            u16Status = 0;
+            u16RunStatus = 0;
             break;
     }
     return bResult;

@@ -7,9 +7,9 @@
 
 #pragma once
 
-#define MAX_WECKER    2
+#define MAX_WECKER    7
 
-enum class WOCHEN_TAG: uint16_t {
+enum class WEEK_DAY: uint16_t {
     SO = 0,
     MO = 1,
     DI = 2,
@@ -22,16 +22,16 @@ enum class WOCHEN_TAG: uint16_t {
     WE = 9          // alarm active anly at weekend (SA und SO)
 };
 
-struct stWeckZeit {
-    WOCHEN_TAG  Wochentag;          
+struct stAlarmTime {
+    WEEK_DAY  Wochentag;          
     uint16_t    u16Stunde;
     uint16_t    u16Minute;   
 };
 
-class clWecken {
+class clAlarm {
     public:
-        ~clWecken(){}
-        clWecken (tm *_AktuelleZeit, clOut *_Summer, clIn *_Taster, stWeckZeit *_stWz);
+        ~clAlarm(){}
+        clAlarm (tm *_AktuelleZeit, clOut *_buzzer, clIn *_switch, stAlarmTime *_stWz);
 
         String getWeckStunde(void);
         String getWeckMinute(void); 
@@ -39,35 +39,38 @@ class clWecken {
         String getWeckTage(void);
 
         bool getStatus(void);
-        bool stelleWeckzeit(void);
+        bool setNewAlarmTime(void);
+        bool setStartStopAlarm(void);
        
-        void setTime(stWeckZeit *_WeckZeit);
+        void setTime(stAlarmTime *_AlarmTime);
         void Start(void); 
         void Stop(void);
 
-        static bool enableWakeUpTime(clIn *_Taster);
+        static bool enableAlarmTime(clIn *_switch);
         static void Check(void);
 
     private:
-        clOut *Summer;
-        clIn *Taster;
+        clOut *buzzer;
+        clIn *cSwitch;
 
-        static clWecken *pclWecken[MAX_WECKER];
-        static uint16_t sWeckerNr;
+        static clAlarm *pclAlarm[MAX_WECKER];
+        static uint16_t sAlarmNumber;
         
-        stWeckZeit WeckZeit;
+        stAlarmTime AlarmTime;
         
         struct tm *AktuelleZeit;  
 
         uint32_t u32Delay;
         
         uint16_t u16Status;
-        uint16_t u16StatusWeckzeit;
+        uint16_t u16StatusAlarmTime;
         uint16_t u16StatusWzAnzeige;
+        uint16_t u16StatusAlarm;
+        uint16_t u16StatusAlarmOld;
         uint16_t u16InkZeit;
         uint16_t u16InkTage;
         uint16_t u16Count; 
-        uint16_t u16WeckerNr;
+        uint16_t u16AlarmNumber;
 
         uint32_t u32Timer1;
         uint32_t u32Timer2;
@@ -75,9 +78,9 @@ class clWecken {
         bool bRun;
         bool bTagOk;
         bool bAktive;
-        bool bStelleStunden;
-        bool bStelleMinuten;
-        bool bStelleTage;
+        bool bSetAlarmHour;
+        bool bSetAlarmMinutes;
+        bool bSetAlarmDay;
         const char *_WeekDay[10] = {"So ", "Mo ", "Di ", "Mi ", "Do ", "Fr ", "Sa ", "So - Sa", "Mo - Fr", "Sa, So"};
                      
         bool inkZeit (uint16_t *u16Zeit, uint16_t u16Grenze);

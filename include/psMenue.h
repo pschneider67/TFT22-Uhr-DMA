@@ -15,15 +15,18 @@ typedef struct {
 class clMenue {
     public:
         ~clMenue(){}
-        clMenue (clIn *_MenueTaster, menue_t *_MenueArray, void (*_cbAnzeige)(String));
-        bool Verwaltung(void);
+        clMenue (clIn *_switch, menue_t *_MenueArray, void (*_cbAnzeige)(String));
+        bool runMenue(void);
         uint16_t getAktualMenue(void);
 
     private:
         void (*cbAnzeige)(String);	
-        clIn *MenueTaster;
+        clIn *Sw;
         uint16_t u16MenueCount;
         uint32_t u32Timer;
         menue_t *MenueArray;
-        bool bMenueFertig;
+        bool bFuncReady;
+
+        uint16_t u16RunStatus;
+        uint16_t u16RunStatusOld;
     };        

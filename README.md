@@ -6,11 +6,11 @@ Die Software läuft auf der Platine TFT22-Uhr. Die KiCad Daten der Platine sind 
 Kurze Beschreibung des Weckers
 
 Bedienelemente    
-Taster 1 - Menüumschaltung <br>
-Der Taster muss so lange gedrückt werden bis in der Statuszeile (unten) ein neuer Menüpunkt angezeigt wird.
+cSwitch 1 - Menüumschaltung <br>
+Der switch muss so lange gedrückt werden bis in der Statuszeile (unten) ein neuer Menüpunkt angezeigt wird.
 Nun kann man ducrh die Menüs schalten.<br><br>
-Taster 2     
-Mit diesem Taster wird das jeweilige Menü gestartet. Die Taste muss so lange gedrückt werden bis eine Aktion sichtbar wird.
+switch 2     
+Mit diesem switch wird das jeweilige Menü gestartet. Die Taste muss so lange gedrückt werden bis eine Aktion sichtbar wird.
 <br><br>
 Die Menüs werden nach einiger Zeit selbständig verlassen. Sind neue Konfigurationsdaten entstanden, so werden diese automatisch im Flash des ESP8266 gespeichert. 
 Dies wird durch einen kurzen Piep signalisiert. Ein Stern vor der Weckzeit zeigt an das der Wecker für diese Zeit aktiv ist. Das Aktivieren der Weckfunktion wird mit einem langen Druck auf die Taste 2 aktiviert. Die Displayhelligkeit wird über einen Fotowiderstand eingstellt und passt sich der Umgebungshelligkeit an. <br>

@@ -74,8 +74,8 @@ enum class POLARITY: uint16_t {
 // -------------------------------------		unterer Rand y = tftWidth, x = tftHeight = 240 Pixel
 
 // For the Adafruit shield, these are the default.
-//#define TFT_DC      2         // GPIO 2  - NodeMCU D4
-//#define TFT_CS      5         // GPIO 5  - NodeMCU D1
+//#define TFT_DC      2         	// GPIO 2  - NodeMCU D4
+//#define TFT_CS      5         	// GPIO 5  - NodeMCU D1
 #define TFT_BACKLIGHT 0         // GPIO 0  - NodeMCU D3
 #define TFT_POTI      A0        // TOUT    - NodeMCU A0
 
@@ -95,36 +95,39 @@ void showVersion(void);
 void showFrame(void);
 void showDateAndTime(struct tm);
 void showTime(struct tm, bool);
-void showWakeUpTime(bool);
+void showAlarmTime(bool);
 void showState(String strData); 
 void showWeatherIcon(const unsigned short*, uint16_t, uint16_t);
 void showWeather(String, uint16_t, uint16_t); 
 
-bool enableWakeUpTime(clIn *);
+bool enableAlarmTime(clIn *);
 void tftBrigthnees(void);
 
 void initGpio(void);
 void initDisplay(void);
 void initNetwork(void);
 
-void wifiCallback(WiFiManager *myWiFiManager);
-String getJsonDataFromWeb (String, String);
 bool initTime(void);
 void initIrq(void);
 void initFs(void);
 void initOTA(void);
+
+String getJsonDataFromWeb (String, String);
+
 void saveConfigCallback(void);
+void wifiCallback(WiFiManager *myWiFiManager);
+
 void saveWeckerConfig(void);
 void showWeatherString(void);
+bool changeAlarmTime(uint16_t);  
 
 bool runMainMenue(void);
-bool changeWakeUpTime(uint16_t);  
-bool runWakeUpTime_1(void);
-bool runWakeUpTime_2(void);
+bool runAlarmTime_1(void);
+bool runAlarmTime_2(void);
 bool runState(void);
 bool runDeleteFile(void);
 bool runWeatherForcast(void);
-bool runSetWakeUpTime(void);
+bool runStartStopAlarm(void);
 
 void irqTimer0(void);
 void irqSw01(void);
