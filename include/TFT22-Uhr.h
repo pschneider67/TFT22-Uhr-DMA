@@ -20,16 +20,10 @@
 
 #include "font.h"
 
-enum class POLARITY: uint16_t {
-	NEG = 0,
-	POS = 1
-};
-
 #include <WiFiManager.h> 		// https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 #include <ESP8266WebServer.h>
 
-#include "psOutput.h"
-#include "psInput.h"
+#include "psGpio.h"
 #include "psWecker.h"
 #include "psMenue.h"
 
