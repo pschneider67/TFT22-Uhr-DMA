@@ -47,6 +47,34 @@ void clAlarm::setTime(stAlarmTime *_AlarmTime) {
     AlarmTime.Wochentag = _AlarmTime->Wochentag;
 }
 
+void clAlarm::setTimeString(String _stTime) {
+    Serial.println(_stTime);  //  "xx:xx"
+    
+    // extract time data
+    if (_stTime.substring(0,2) != " ") {			
+        String stHour = _stTime.substring(0,2);
+        AlarmTime.u16Stunde = stHour.toInt();
+    } 
+
+    if (_stTime.substring(3) != " ") {			
+        String stMinute = _stTime.substring(3);
+        AlarmTime.u16Minute = stMinute.toInt();
+    } 
+}
+
+void clAlarm::setWeekDay(String _day) {
+    Serial.println(_day);
+    AlarmTime.Wochentag = (WEEK_DAY)_day.toInt();
+}
+
+void clAlarm::setAlarmAktive() {
+    bAktive = true;
+}
+
+void clAlarm::setAlarmInaktive() {
+     bAktive = false;
+}
+
 String clAlarm::getWeckStunde(void) {
     return String(AlarmTime.u16Stunde);
 }
@@ -65,9 +93,9 @@ String clAlarm::getTimeString(void) {
     char cStr[40];
    
     if (bAktive) {
-        sprintf(cStr, "W%u: * %02u:%02u : %s", u16AlarmNumber, AlarmTime.u16Stunde, AlarmTime.u16Minute, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
+        snprintf_P(cStr, sizeof(cStr), PSTR("W%u: * %02u:%02u : %s"), u16AlarmNumber, AlarmTime.u16Stunde, AlarmTime.u16Minute, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
     } else {
-        sprintf(cStr, "W%u:   %02u:%02u : %s", u16AlarmNumber, AlarmTime.u16Stunde, AlarmTime.u16Minute, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
+        snprintf_P(cStr, sizeof(cStr), PSTR("W%u:   %02u:%02u : %s"), u16AlarmNumber, AlarmTime.u16Stunde, AlarmTime.u16Minute, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
     }
 
     switch (u16StatusWzAnzeige) { 
@@ -85,9 +113,9 @@ String clAlarm::getTimeString(void) {
             break;
         case 10:    // hour off 
             if (bAktive) {
-                sprintf(cStr, "W%u: *   :%02u : %s", u16AlarmNumber, AlarmTime.u16Minute, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
+                snprintf_P(cStr, sizeof(cStr), PSTR("W%u: *   :%02u : %s"), u16AlarmNumber, AlarmTime.u16Minute, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
             } else {
-                sprintf(cStr, "W%u:     :%02u : %s", u16AlarmNumber, AlarmTime.u16Minute, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
+                snprintf_P(cStr, sizeof(cStr), PSTR("W%u:     :%02u : %s"), u16AlarmNumber, AlarmTime.u16Minute, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
             }
             if (millis() > (u32Timer1 + 300)) {
                 u32Timer1 = millis();
@@ -101,9 +129,9 @@ String clAlarm::getTimeString(void) {
             break;
         case 30:    // minutes off
             if (bAktive) {
-                sprintf(cStr, "W%u: * %02u:   : %s", u16AlarmNumber, AlarmTime.u16Stunde, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
+                snprintf_P(cStr, sizeof(cStr), PSTR("W%u: * %02u:   : %s"), u16AlarmNumber, AlarmTime.u16Stunde, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
             } else {
-                sprintf(cStr, "W%u:   %02u:   : %s", u16AlarmNumber, AlarmTime.u16Stunde, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
+                snprintf_P(cStr, sizeof(cStr), PSTR("W%u:   %02u:   : %s"), u16AlarmNumber, AlarmTime.u16Stunde, _WeekDay[(uint16_t)AlarmTime.Wochentag]);
             }
             if (millis() > (u32Timer1 + 300)) {
                 u32Timer1 = millis();
@@ -117,9 +145,9 @@ String clAlarm::getTimeString(void) {
             break;
         case 50:    // week day off
             if (bAktive) {
-                sprintf(cStr, "W%u: * %02u:%02u :   ", u16AlarmNumber, AlarmTime.u16Stunde, AlarmTime.u16Minute);
+                snprintf_P(cStr, sizeof(cStr), PSTR("W%u: * %02u:%02u :   "), u16AlarmNumber, AlarmTime.u16Stunde, AlarmTime.u16Minute);
             } else {
-                sprintf(cStr, "W%u:   %02u:%02u :   ", u16AlarmNumber, AlarmTime.u16Stunde, AlarmTime.u16Minute);
+                snprintf_P(cStr, sizeof(cStr), PSTR("W%u:   %02u:%02u :   "), u16AlarmNumber, AlarmTime.u16Stunde, AlarmTime.u16Minute);
             }
             if (millis() > (u32Timer1 + 300)) {
                 u32Timer1 = millis();

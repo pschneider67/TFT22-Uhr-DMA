@@ -24,8 +24,8 @@ enum class WEEK_DAY: uint16_t {
 
 struct stAlarmTime {
     WEEK_DAY  Wochentag;          
-    uint16_t    u16Stunde;
-    uint16_t    u16Minute;   
+    uint16_t  u16Stunde;
+    uint16_t  u16Minute;   
 };
 
 class clAlarm {
@@ -41,7 +41,11 @@ class clAlarm {
         bool getStatus(void);
         bool setNewAlarmTime(void);
         bool setStartStopAlarm(void);
-       
+               
+        void setAlarmAktive(void);
+        void setAlarmInaktive(void);
+        void setTimeString(String _stTime);
+        void setWeekDay(String _day);
         void setTime(stAlarmTime *_AlarmTime);
         void Start(void); 
         void Stop(void);
@@ -81,7 +85,18 @@ class clAlarm {
         bool bSetAlarmHour;
         bool bSetAlarmMinutes;
         bool bSetAlarmDay;
-        const char *_WeekDay[10] = {"So ", "Mo ", "Di ", "Mi ", "Do ", "Fr ", "Sa ", "So - Sa", "Mo - Fr", "Sa, So"};
+        const char *_WeekDay[10] = {
+            "So         ", 
+            "Mo         ", 
+            "Di         ", 
+            "Mi         ", 
+            "Do         ", 
+            "Fr         ", 
+            "Sa         ", 
+            "So - Sa ", 
+            "Mo - Fr ", 
+            "Sa, So  "
+        };
                      
         bool inkZeit (uint16_t *u16Zeit, uint16_t u16Grenze);
 };

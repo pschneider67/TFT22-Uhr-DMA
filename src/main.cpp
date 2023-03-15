@@ -47,12 +47,12 @@ TFT_eSprite actDateToShow    = TFT_eSprite(&tft);	// sprite to show actual date
 TFT_eSprite actTimeSecToShow = TFT_eSprite(&tft);	// sprite to show actual time and sec.
 
 // use openweather setup
-String ApiKey = API_KEY;
-String CityName1 = CITY_NAME_1;
-String CityName2 = CITY_NAME_2;
+char ApiKey[34];
+char CityName1[20];
+char CityName2[20];
 
 const char Server[] PROGMEM = "api.openweathermap.org";
-String strIcon;
+char strIcon[6];
 
 const char WeekDay[7][5] PROGMEM = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr. ", "Sa. "};
 
@@ -91,7 +91,7 @@ clIn sw01;
 stInput ParamSw02 = {SW_02, CHANGE, 40, 2000, irqSw02, POLARITY::POS, false};
 clIn sw02;
 
-char cVersion[] PROGMEM = "02.00";
+char cVersion[] PROGMEM = "03.00";
 char cDatum[]   PROGMEM = __DATE__;
 
 // definition of alarm times
@@ -102,7 +102,7 @@ stAlarmTime stWz[MAX_WECKER] = {
 	{WEEK_DAY::DO, 8, 00},
 	{WEEK_DAY::FR, 8, 00},
 	{WEEK_DAY::SA, 8, 00},
-	{WEEK_DAY::SO, 8, 00},
+	{WEEK_DAY::SO, 8, 00}
 };
 
 // definition of arlam clocks
@@ -113,7 +113,7 @@ std::array<clAlarm, MAX_WECKER> Wecker = {
     clAlarm(&timeinfo, &buzzer, &sw02, &stWz[3]),
     clAlarm(&timeinfo, &buzzer, &sw02, &stWz[4]),
     clAlarm(&timeinfo, &buzzer, &sw02, &stWz[5]),
-    clAlarm(&timeinfo, &buzzer, &sw02, &stWz[6]),
+    clAlarm(&timeinfo, &buzzer, &sw02, &stWz[6])
 };
 typedef struct {
 	char strStunden[3];
@@ -177,36 +177,45 @@ String strCityNameForecast;
 
 bool bGetWeather = false;
 
+char strDummy[30];
+
 // ---------------------------------------------------------------------------------------------------
 // setup
 // ---------------------------------------------------------------------------------------------------
 void setup() {
+	snprintf_P(ApiKey, sizeof(ApiKey), PSTR(API_KEY));
+	snprintf_P(CityName1, sizeof(CityName1), PSTR(CITY_NAME_1));
+	snprintf_P(CityName2, sizeof(CityName2), PSTR(CITY_NAME_2));
+
 	Serial.begin(115200);
+    Serial.println();
 
 	initDisplay();
 	initGpio();
 	initNetwork();
 	initOTA();
-	
-	tftBrigthnees();
-	
-	showFrame();
-	
-	configTime(MY_TZ, MY_NTP_SERVER);
 
-	initFs();	// read config data of clock
-	
 	Serial.println();
 	Serial.println(F("--------------------------------------"));
 	Serial.println(F("- TFT2.2 clock spi                   -"));
 	Serial.println(F("--------------------------------------"));
-	Serial.println(String("version        - ") + String(cVersion));
-	Serial.println(String("build date     - ") + String(cDatum));
-	Serial.println(String("esp core       - ") + ESP.getCoreVersion());
-	Serial.println(String("Free Heap Size - ") + ESP.getFreeHeap());
-	Serial.println();
+
+	snprintf_P(strDummy, sizeof(strDummy), PSTR("version        - %s"), cVersion);
+	Serial.println(String(strDummy));
+	snprintf_P(strDummy, sizeof(strDummy), PSTR("build date     - %s"), cDatum);
+	Serial.println(String(strDummy));
+	Serial.print(String(F("esp core       - ")));
+	Serial.println(ESP.getCoreVersion());
+	Serial.print(String(F("free heap size - ")));
+	Serial.println(ESP.getFreeHeap());
+
+	tftBrigthnees();
+	showFrame();
+	configTime(MY_TZ, MY_NTP_SERVER);
 
 	initIrq();
+	initFs();	// read config data of clock
+
 	showWeatherIcon(bild_44, xPosWeatherNow, yPosWeatherNow);
 }
 
@@ -216,7 +225,7 @@ void setup() {
 void loop(void) {
 	String strText = String(tempToday, 1) + String("'C - ") + String(humidityToday, 0) + String("% - ") + String(pressureToday, 0) + String("hPa");
 	static String strTextOld = " ";
-
+	
 	ArduinoOTA.handle(); 					// OTA Upload via ArduinoIDE
 	
 	sw01.runState();
@@ -227,13 +236,10 @@ void loop(void) {
 
 	time(&actualTime);					 	// get actual time
 	localtime_r(&actualTime, &timeinfo); 	// write actual time to timeinfo 
-
 	clAlarm::Check();						// check alarm time
-
 	showDateAndTime(timeinfo); 				
 	showAlarmTime(false);
-	
-	HMenue.runMenue();					// run menue
+	HMenue.runMenue();						// run menue
 	
 	if (HMenue.getAktualMenue() != 0) {
 		strTextOld = " ";
@@ -256,7 +262,7 @@ void loop(void) {
 			showTime(timeinfo, false);
 			if (bGetWeather) {
 				getActualWeather();	
-				showWeather(strIconToday, xPosWeatherNow, yPosWeatherNow);
+				showWeather(strIconToday.c_str(), xPosWeatherNow, yPosWeatherNow);
 				bGetWeather = false;
 			}	
 			break;
@@ -276,23 +282,23 @@ void showVersion(void) {
 	showState(strText);
 }
 
-void showWeather(String _strIcon, uint16_t _xpos, uint16_t _ypos) {
-	if      (_strIcon == String("01d")) {showWeatherIcon(bild_01d, _xpos, _ypos);}
-	else if (_strIcon == String("01n")) {showWeatherIcon(bild_01n, _xpos, _ypos);}
-	else if (_strIcon == String("02d")) {showWeatherIcon(bild_02d, _xpos, _ypos);}
-	else if (_strIcon == String("02n")) {showWeatherIcon(bild_02n, _xpos, _ypos);}
-	else if (_strIcon == String("03d")) {showWeatherIcon(bild_03d, _xpos, _ypos);}
-	else if (_strIcon == String("03n")) {showWeatherIcon(bild_03d, _xpos, _ypos);}
-	else if (_strIcon == String("04d")) {showWeatherIcon(bild_04d, _xpos, _ypos);}
-	else if (_strIcon == String("04n")) {showWeatherIcon(bild_04d, _xpos, _ypos);}
-	else if (_strIcon == String("09d")) {showWeatherIcon(bild_09d, _xpos, _ypos);}
-	else if (_strIcon == String("09n")) {showWeatherIcon(bild_09d, _xpos, _ypos);}
-	else if (_strIcon == String("10d")) {showWeatherIcon(bild_10d, _xpos, _ypos);}
-	else if (_strIcon == String("10n")) {showWeatherIcon(bild_10n, _xpos, _ypos);}
-	else if (_strIcon == String("13d")) {showWeatherIcon(bild_13d, _xpos, _ypos);}
-	else if (_strIcon == String("13n")) {showWeatherIcon(bild_13d, _xpos, _ypos);}
-	else if (_strIcon == String("50d")) {showWeatherIcon(bild_50d, _xpos, _ypos);}
-	else if (_strIcon == String("50n")) {showWeatherIcon(bild_50d, _xpos, _ypos);}
+void showWeather(const char* _strIcon, uint16_t _xpos, uint16_t _ypos) {
+	if      (strcmp(_strIcon, "01d") == 0) {showWeatherIcon(bild_01d, _xpos, _ypos);}
+	else if (strcmp(_strIcon, "01n") == 0) {showWeatherIcon(bild_01n, _xpos, _ypos);}
+	else if (strcmp(_strIcon, "02d") == 0) {showWeatherIcon(bild_02d, _xpos, _ypos);}
+	else if (strcmp(_strIcon, "02n") == 0) {showWeatherIcon(bild_02n, _xpos, _ypos);}
+	else if (strcmp(_strIcon, "03d") == 0) {showWeatherIcon(bild_03d, _xpos, _ypos);}
+	else if (strcmp(_strIcon, "03n") == 0) {showWeatherIcon(bild_03d, _xpos, _ypos);}
+	else if (strcmp(_strIcon, "04d") == 0) {showWeatherIcon(bild_04d, _xpos, _ypos);}
+	else if (strcmp(_strIcon, "04n") == 0) {showWeatherIcon(bild_04d, _xpos, _ypos);}
+	else if (strcmp(_strIcon, "09d") == 0) {showWeatherIcon(bild_09d, _xpos, _ypos);}
+	else if (strcmp(_strIcon, "09n") == 0) {showWeatherIcon(bild_09d, _xpos, _ypos);}
+	else if (strcmp(_strIcon, "10d") == 0) {showWeatherIcon(bild_10d, _xpos, _ypos);}
+	else if (strcmp(_strIcon, "10n") == 0) {showWeatherIcon(bild_10n, _xpos, _ypos);}
+	else if (strcmp(_strIcon, "13d") == 0) {showWeatherIcon(bild_13d, _xpos, _ypos);}
+	else if (strcmp(_strIcon, "13n") == 0) {showWeatherIcon(bild_13d, _xpos, _ypos);}
+	else if (strcmp(_strIcon, "50d") == 0) {showWeatherIcon(bild_50d, _xpos, _ypos);}
+	else if (strcmp(_strIcon, "50n") == 0) {showWeatherIcon(bild_50d, _xpos, _ypos);}
 	else {showWeatherIcon(bild_44, _xpos, _ypos);}
 }
 
@@ -555,7 +561,7 @@ bool runWeatherForcast (void) {
 				showAlarmTime(true);
 				showTime(timeinfo, true);
 				bGetWeather = true;														// load weather icon
-				showWeather(strIconToday, xPosWeatherNow, yPosWeatherNow);
+				showWeather(strIconToday.c_str(), xPosWeatherNow, yPosWeatherNow);
 				u16Status = 0;
 			}
 			break;
@@ -588,15 +594,16 @@ void showDateAndTime(struct tm _actTimeinfo) {
 	uint16_t spriteYPos2  = 9;
 
 	char str[20];
+
 	static String strTimeOld = " ";
 	String strTime;
 	
 	static String strDateOld = " ";
 	String strDate;
-
-	sprintf(str, "%02u:%02u:%02u", _actTimeinfo.tm_hour, _actTimeinfo.tm_min, _actTimeinfo.tm_sec);
+		
+	snprintf_P(str, sizeof(str), PSTR("%02u:%02u:%02u"), _actTimeinfo.tm_hour, _actTimeinfo.tm_min, _actTimeinfo.tm_sec);
 	strTime = String(str);
-	
+		
 	// write actual time if time changed
 	if (strTimeOld != strTime) {
 		actTimeSecToShow.setColorDepth(8);
@@ -612,10 +619,12 @@ void showDateAndTime(struct tm _actTimeinfo) {
 		strTimeOld == strTime;
 	}
 
-	strDate = String(WeekDay[_actTimeinfo.tm_wday]);
-	sprintf(str, "%02u.%02u.%4u", _actTimeinfo.tm_mday, _actTimeinfo.tm_mon + 1, 1900 + _actTimeinfo.tm_year);
-	strDate += String(str);
+	snprintf_P(str, sizeof(str), PSTR("%s"), WeekDay[_actTimeinfo.tm_wday]);
 	
+	strDate = String(str);
+	snprintf_P(str, sizeof(str), PSTR("%02u.%02u.%4u"), _actTimeinfo.tm_mday, _actTimeinfo.tm_mon + 1, 1900 + _actTimeinfo.tm_year);
+	strDate += String(str);
+
 	// write actual date if time changed
 	if (strDateOld != strDate) {
 		actDateToShow.setColorDepth(8);
@@ -652,14 +661,14 @@ void showAlarmTime(bool _bForce) {
 	for (int i = 0; i < 2; i++) {
 		uint16_t y = 141 + (i * yFontHeight + 2); 
 
-		//   0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18
-		//   W 0 :   *   0 5 : 4 5     :  M  o
+		//   0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
+		//   W 0 :   *   0 5 : 4 5   :        M  o
 		strAlarmTime[i] = Wecker[i].getTimeString(); 		
-		strName   = strAlarmTime[i].substring(0,5);	 			// "W0: * "		
+		strName   = strAlarmTime[i].substring(0,6);	 			// "W0: * "		
 		strHour   = strAlarmTime[i].substring(6,8);				// "05"
 		strMinute = strAlarmTime[i].substring(9,11);			// "45"
-		strDay    = strAlarmTime[i].substring(14,strAlarmTime[i].length());
-
+		strDay    = strAlarmTime[i].substring(14);				// "Mo"
+		
 		if ((oldString[i] != strAlarmTime[i]) || _bForce) {
 			Serial.println(TraceTime() + strAlarmTime[i]);
 
@@ -746,7 +755,7 @@ void showTime(struct tm _actTimeinfo, bool _bForce) {
 			break;
 		case 20: 	// show new time string
 			// build new time string
-			sprintf(str, "%u:%02u", _actTimeinfo.tm_hour, _actTimeinfo.tm_min);
+			snprintf_P(str, sizeof(str), PSTR("%u:%02u"), _actTimeinfo.tm_hour, _actTimeinfo.tm_min);
 			strZeit = String(str);
 			
 			actTimeToShow.setTextSize(1);	
@@ -794,7 +803,6 @@ void tftBrigthnees(void) {
 // -----------------------------------------------------------------------------------
 IRAM_ATTR void irqTimer0(void) {
 	//Serial.println(TraceTime() + "Timer IRQ");
-
 	static uint32_t weatherTimer = 0;
 
 	if (++weatherTimer >= 60 * 15) {
@@ -809,6 +817,7 @@ IRAM_ATTR void irqTimer0(void) {
 // init GPIO
 // -----------------------------------------------------------------------------------
 void initGpio(void) {
+	Serial.println("-- init gpio");
 	sw01.Init(ParamSw01);
 	sw02.Init(ParamSw02);
 
@@ -831,6 +840,7 @@ void initGpio(void) {
 // init display
 // -----------------------------------------------------------------------------------
 void initDisplay(void) {
+	Serial.println("-- init dsplay");	
 	tft.init();
 	tft.setSwapBytes(true);				// used by push image function
 	tft.setRotation(ROTATION_90);
@@ -858,7 +868,10 @@ void initNetwork(void) {
 		tft.drawString(".. WLan connected", 10, 40);
 		String strText = String(".. ") + WiFi.SSID() + String(" - ") + WiFi.localIP().toString();
 		tft.drawString(strText, 10, 70);
+	  	wifiServer.on("/", handleConfig);
+		wifiServer.on("/save.html", handlePage);
 		wifiServer.begin();
+		Serial.println(".. server online");
 		delay(4000);
 	} else {
 		tft.drawString(".. WLan error !!", 10, 40);
@@ -868,7 +881,135 @@ void initNetwork(void) {
 	}
 }
 
+void handleConfig() {
+	Serial.println("** handleConfig");
+	String stValueName;
+	bool bSaveData = false;
+	
+	for (int i=0; i < MAX_WECKER; i++) {
+		stValueName = String("httpWz") + String(i);
+		Serial.println(stValueName);
+		if (wifiServer.hasArg(stValueName)) {
+			Wecker[i].setTimeString(wifiServer.arg(stValueName));
+			bSaveData = true;
+		} else {
+			bSaveData = false;
+		}
+		stValueName = String("httpTage") + String(i);
+		Serial.println(stValueName);
+		if (wifiServer.hasArg(stValueName)) {
+			Wecker[i].setWeekDay(wifiServer.arg(stValueName));
+		}
+		stValueName = String("httpAktiv") + String(i);
+		Serial.println(stValueName);
+		if (wifiServer.hasArg(stValueName)) {
+			Wecker[i].setAlarmAktive();
+		} else if (bSaveData) {
+			Wecker[i].setAlarmInaktive();
+		}
+	}
+	
+ 	String message;
+  	message = F(
+		"<!DOCTYPE html>"
+    	"<html lang='de'>"
+    	"<head><title>ESP8266 Wecker</title></head>"
+    	"<body><h1>ESP8266 Wecker</h1>"
+ 		
+		"<table>"
+ 			"<tr><form method='post' action='/'>"
+				"<td>Weckzeit 0</td>"
+				"<td><input type='checkbox' id='httpAktiv0' name='httpAktiv0'></td>"
+				"<td><input type='time' id='httpWz0' name='httpWz0' value='00:00'></td>"
+			 	"<td><select name='httpTage0' size='1'>"
+			   		"<option value=0>Sonntag</option>"
+		 	  		"<option value=1>Montag</option>"
+					"<option value=2>Dienstag</option>"
+				    "<option value=3>Mittwoch</option>"
+			   		"<option value=4>Donnerstag</option>"
+			   		"<option value=5>Freitag</option>"
+	 	   			"<option value=6>Samstag</option>"
+		 	   		"<option value=7>Jeden Tag</option>"
+	 	   			"<option value=8 selected>Mo. bis Fr.</option>"
+	 	   			"<option value=9>Wochenende</option>"
+		   		"</select></td>"
+			 	"<td><button name='httpWz0'>Zeit 0 senden</button></td>"
+			"</form></tr>"
+
+ 			"<tr><form method='post' action='/'>"
+				"<td>Weckzeit 1</td>"
+				"<td><input type='checkbox' id='httpAktiv1' name='httpAktiv1'></td>"
+				"<td><input type='time' id='httpWz1' name='httpWz1' value='00:00'></td>"
+			 	"<td><select name='httpTage1' size='1'>"
+			   		"<option value=0>Sonntag</option>"
+		 	  		"<option value=1>Montag</option>"
+					"<option value=2>Dienstag</option>"
+				    "<option value=3>Mittwoch</option>"
+			   		"<option value=4>Donnerstag</option>"
+			   		"<option value=5>Freitag</option>"
+	 	   			"<option value=6>Samstag</option>"
+		 	   		"<option value=7>Jeden Tag</option>"
+	 	   			"<option value=8 selected>Mo. bis Fr.</option>"
+	 	   			"<option value=9>Wochenende</option>"
+		   		"</select></td>"
+			 	"<td><button name='httpWz1'>Zeit 1 senden</button></td>"
+			"</form></tr>"
+
+ 			"<tr><form method='post' action='/'>"
+				"<td>Weckzeit 2</td>"
+				"<td><input type='checkbox' id='httpAktiv2' name='httpAktiv2'></td>"
+				"<td><input type='time' id='httpWz2' name='httpWz2' value='00:00'></td>"
+			 	"<td><select name='httpTage2' size='1'>"
+			   		"<option value=0>Sonntag</option>"
+		 	  		"<option value=1>Montag</option>"
+					"<option value=2>Dienstag</option>"
+				    "<option value=3>Mittwoch</option>"
+			   		"<option value=4>Donnerstag</option>"
+			   		"<option value=5>Freitag</option>"
+	 	   			"<option value=6>Samstag</option>"
+		 	   		"<option value=7>Jeden Tag</option>"
+	 	   			"<option value=8 selected>Mo. bis Fr.</option>"
+	 	   			"<option value=9>Wochenende</option>"
+		   		"</select></td>"
+			 	"<td><button name='httpWz2'>Zeit 2 senden</button></td>"
+			"</form></tr>"
+
+ 			"<tr><form method='post' action='/'>"
+				"<td>Weckzeit 3</td>"
+				"<td><input type='checkbox' id='httpAktiv3' name='httpAktiv3'></td>"
+				"<td><input type='time' id='httpWz3' name='httpWz3' value='00:00'></td>"
+			 	"<td><select name='httpTage3' size='1'>"
+			   		"<option value=0>Sonntag</option>"
+		 	  		"<option value=1>Montag</option>"
+					"<option value=2>Dienstag</option>"
+				    "<option value=3>Mittwoch</option>"
+			   		"<option value=4>Donnerstag</option>"
+			   		"<option value=5>Freitag</option>"
+	 	   			"<option value=6>Samstag</option>"
+		 	   		"<option value=7>Jeden Tag</option>"
+	 	   			"<option value=8 selected>Mo. bis Fr.</option>"
+	 	   			"<option value=9>Wochenende</option>"
+		   		"</select></td>"
+			 	"<td><button name='httpWz3'>Zeit 3 senden</button></td>"
+			"</form></tr>"
+
+		"</table>"
+    
+		"</body>"
+		"</html>"
+	);
+	
+	Serial.println(message);
+
+	wifiServer.send(200, "text/html", message);
+}
+
+void handlePage() {
+	Serial.println("** handlePage");
+}
+
 void wifiCallback(WiFiManager *_myWiFiManager) {
+	tft.println(" ");
 	tft.println(".. Konfig. Mode aktiv");
 	tft.print("..");
 	tft.println(WiFi.softAPIP());
@@ -885,13 +1026,13 @@ void initFs(void) {
 
 		//return;  
 
-   		Serial.println(".. mounted file system");
+   		Serial.println(".. FS mounted");
     	if (LittleFS.exists("/config.json")) {
       		// file exists, reading and loading
-      		Serial.println(".. reading config file");
+      		Serial.println(".. open config file");
       		File configFile = LittleFS.open("/config.json", "r");
       		if (configFile) {
-        		Serial.println(".. opened config file");
+        		Serial.println(".. config file readed");
         		size_t size = configFile.size();
         		
 				// allocate a buffer to store contents of the file.
@@ -902,20 +1043,28 @@ void initFs(void) {
 		       	DynamicJsonDocument json(1024);
         		auto deserializeError = deserializeJson(json, buf.get());
         		serializeJson(json, Serial);
-        		if (!deserializeError) {
+        		
+				if (!deserializeError) {
           			Serial.println("\nparsed json");
 					char strData[20];  
-					for (int i = 0; i < MAX_WECKER; i++) {
-						sprintf(strData, "WeckerStunden_%i" , i);
+					char strMaxWecker[5];
+
+					snprintf_P(strData, sizeof(strData), PSTR("MaxWecker"));
+					strcpy(strMaxWecker, json[strData]);
+					String Data = (String)strMaxWecker;
+					int iMaxWecker = Data.toInt();
+					
+					for (int i = 0; i < iMaxWecker; i++) {
+						snprintf_P(strData, sizeof(strData), PSTR("WeckerStunden_%i") , i);
 						strcpy(WeckerDaten[i].strStunden, json[strData]);
 						
-						sprintf(strData, "WeckerMinuten_%i" , i);
+						snprintf_P(strData, sizeof(strData), PSTR("WeckerMinuten_%i") , i);
 						strcpy(WeckerDaten[i].strMinuten, json[strData]);
 						
-						sprintf(strData, "WeckerTage_%i" , i);
+						snprintf_P(strData, sizeof(strData), PSTR("WeckerTage_%i") , i);
 						strcpy(WeckerDaten[i].strTage, json[strData]);
 						
-						sprintf(strData, "WeckerAktiv_%i" , i);
+						snprintf_P(strData, sizeof(strData), PSTR("WeckerAktiv_%i") , i);
 						strcpy(WeckerDaten[i].strAktiv, json[strData]); 
 
 						String Data = (String)WeckerDaten[i].strStunden;
@@ -948,7 +1097,6 @@ void initFs(void) {
 
 // callback notifying us of the need to save config
 void saveConfigCallback () {
-  Serial.println("Konfiguration sollte gespeichert werden");
   shouldSaveConfig = true;
 }
 
@@ -957,17 +1105,20 @@ void saveWeckerConfig(void) {
 	DynamicJsonDocument json(1024);
 	char strData[20]; 
 	
+	snprintf_P(strData, sizeof(strData), PSTR("MaxWecker"));
+	json[strData] = (String)MAX_WECKER;
+
 	for(int i = 0; i < MAX_WECKER; i++) {
-		sprintf(strData, "WeckerStunden_%i" , i);
+		snprintf_P(strData, sizeof(strData), PSTR("WeckerStunden_%i") , i);
 		json[strData] = WeckerDaten[i].strStunden;
 		
-		sprintf(strData, "WeckerMinuten_%i" , i);
+		snprintf_P(strData, sizeof(strData), PSTR("WeckerMinuten_%i") , i);
 		json[strData] = WeckerDaten[i].strMinuten;
 		
-		sprintf(strData, "WeckerTage_%i" , i);
+		snprintf_P(strData, sizeof(strData), PSTR("WeckerTage_%i") , i);
 		json[strData] = WeckerDaten[i].strTage;
 
-		sprintf(strData, "WeckerAktiv_%i" , i);
+		snprintf_P(strData, sizeof(strData), PSTR("WeckerAktiv_%i") , i);
 		if (Wecker[i].getStatus()) {
 			json[strData] = "*";  
 		} else {
@@ -1021,7 +1172,8 @@ String getJsonDataFromWeb (String _Server, String _Url) {
 // get weather data from internet - https:\\openweathermap.org
 // -----------------------------------------------------------------------------------
 void getActualWeather(void) {
-	String strUrl = "GET /data/2.5/weather?q=" + CityName1 + "&appid=" + ApiKey + "&lang=de&mode=json&units=metric";
+	char strUrl[150];
+	snprintf_P(strUrl, sizeof(strUrl), PSTR("GET /data/2.5/weather?q=%s&appid=%s&lang=de&mode=json&units=metric"), CityName1, ApiKey);
 	
 	Serial.println(TraceTime() + "getActualWeather");
 	Serial.println(TraceTime() + strUrl);
@@ -1078,16 +1230,16 @@ void decodeCurrentWeather(String _WetterDaten) {
 }
 
 void getWeatherForcast(void) {
-	String strUrl;
+	char strUrl[150];
 	
 	if (HMenue.getAktualMenue() == 3) {
-		strUrl = "GET /data/2.5/forecast/daily?q=" + CityName1 + "&appid=" + ApiKey + "&cnt=4&lang=de&mode=json&units=metric";
+		snprintf_P(strUrl,sizeof(strUrl), PSTR("GET /data/2.5/forecast/daily?q=%s&appid=%s&cnt=4&lang=de&mode=json&units=metric"), CityName1, ApiKey);
 	} else {
-		strUrl = "GET /data/2.5/forecast/daily?q=" + CityName2 + "&appid=" + ApiKey + "&cnt=4&lang=de&mode=json&units=metric";
+		snprintf_P(strUrl,sizeof(strUrl), PSTR("GET /data/2.5/forecast/daily?q=%s&appid=%s&cnt=4&lang=de&mode=json&units=metric"), CityName2, ApiKey);
 	}
 	
-	Serial.println(TraceTime() + "getWeatherForcast");
-	Serial.println(TraceTime() + strUrl);
+	Serial.println(TraceTime() + String("getWeatherForcast"));
+	Serial.println(TraceTime() + String(strUrl));
 
 	decodeWeatherForcast(getJsonDataFromWeb(Server, strUrl));
 }
@@ -1137,7 +1289,7 @@ void decodeWeatherForcast(String _WetterDaten) {
 			strcpy(&cDay[i][0], WeekDay[weekday(ForecastTime) - 1]);
 
 			Serial.println(F("----------------------------------------------"));
-			sprintf(strData, "Datum        : %s %02d.%02d", WeekDay[weekday(ForecastTime) - 1], day(ForecastTime), month(ForecastTime));
+			snprintf_P(strData, sizeof(strData), PSTR("Datum        : %s %02d.%02d"), WeekDay[weekday(ForecastTime) - 1], day(ForecastTime), month(ForecastTime));
 			Serial.println(strData);
 			Serial.print(F("Stadt        : "));
 			Serial.println(strCityNameForecast);
@@ -1173,7 +1325,7 @@ void decodeWeatherForcast(String _WetterDaten) {
 			yield();
 			tft.setFreeFont(DefaultFont);
 			tft.drawCentreString(String(cDay[i]), 8 + ((i * 80) + 32), yMiddle + 8, 1);
-			showWeather(strIconForecast[i], 8 + (i * 80), yMiddle + 30);
+			showWeather(strIconForecast[i].c_str(), 8 + (i * 80), yMiddle + 30);
 			tft.drawCentreString(String(tempMaxForecast[i], 0) + String("'C"), 8 + ((i * 80) + 32), yMiddle + 8 + 64 + 24, 1);
 			tft.drawCentreString(String(humidityForecast[i], 0) + String("%"), 8 + ((i * 80) + 32), yMiddle + 8 + 64 + 48, 1);
 		}
@@ -1189,7 +1341,7 @@ void decodeWeatherForcast(String _WetterDaten) {
 // init timer irq
 // -----------------------------------------------------------------------------------
 void initIrq(void) {
-	Serial.println(TraceTime() + "Konfigration der Interrupts");
+	Serial.println(".. init irq");
 	noInterrupts(); // disable all interrupts 
 
 	timer0_isr_init();
@@ -1224,7 +1376,7 @@ String TraceTime(void) {
 	uint16_t u16s = (uint16_t)((60 + (u32TimerTick / 1000)) % 60);
 	uint16_t u16m = (uint16_t)((60 + (u32TimerTick / 60000)) % 60);
 	uint16_t u16h = (uint16_t)(u32TimerTick / 3600000);
-	sprintf(cTimeStampStr, "> %02u:%02u:%02u.%03u - ", u16h, u16m, u16s, u16ms);
+	snprintf_P(cTimeStampStr, sizeof(cTimeStampStr), PSTR("> %02u:%02u:%02u.%03u - "), u16h, u16m, u16s, u16ms);
 	return String(cTimeStampStr);
 }
 
@@ -1236,6 +1388,7 @@ String convertStringToGerman(String strData) {
 }
 
 void initOTA(void) {
+	Serial.println("-- init OTA");
 	ArduinoOTA.onStart([]() {  
 	 	tft.fillScreen(TFT_BLACK);
 		tft.setFreeFont(DefaultFont);

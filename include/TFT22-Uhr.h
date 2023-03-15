@@ -17,13 +17,11 @@
 #include <TimeLib.h>
 #include <ArduinoJson.h>
 #include <ArduinoOTA.h> 		// OTA Upload via ArduinoIDE
-
-#include "font.h"
-
+#include <psGpio.h>
 #include <WiFiManager.h> 		// https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 #include <ESP8266WebServer.h>
 
-#include "psGpio.h"
+#include "font.h"
 #include "psWecker.h"
 #include "psMenue.h"
 
@@ -68,8 +66,8 @@
 // -------------------------------------		unterer Rand y = tftWidth, x = tftHeight = 240 Pixel
 
 // For the Adafruit shield, these are the default.
-//#define TFT_DC      2         	// GPIO 2  - NodeMCU D4
-//#define TFT_CS      5         	// GPIO 5  - NodeMCU D1
+//#define TFT_DC      2        	// GPIO 2  - NodeMCU D4
+//#define TFT_CS      5        	// GPIO 5  - NodeMCU D1
 #define TFT_BACKLIGHT 0         // GPIO 0  - NodeMCU D3
 #define TFT_POTI      A0        // TOUT    - NodeMCU A0
 
@@ -92,7 +90,7 @@ void showTime(struct tm, bool);
 void showAlarmTime(bool);
 void showState(String strData); 
 void showWeatherIcon(const unsigned short*, uint16_t, uint16_t);
-void showWeather(String, uint16_t, uint16_t); 
+void showWeather(const char*, uint16_t, uint16_t); 
 
 bool enableAlarmTime(clIn *);
 void tftBrigthnees(void);
@@ -106,10 +104,13 @@ void initIrq(void);
 void initFs(void);
 void initOTA(void);
 
-String getJsonDataFromWeb (String, String);
+String getJsonsDataFromWeb (String, String);
 
 void saveConfigCallback(void);
 void wifiCallback(WiFiManager *myWiFiManager);
+
+void handleConfig(void);
+void handlePage(void);
 
 void saveWeckerConfig(void);
 void showWeatherString(void);
