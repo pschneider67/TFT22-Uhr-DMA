@@ -25,7 +25,8 @@ enum class WEEK_DAY: uint16_t {
 struct stAlarmTime {
     WEEK_DAY  Wochentag;          
     uint16_t  u16Stunde;
-    uint16_t  u16Minute;   
+    uint16_t  u16Minute;  
+    bool      bActive; 
 };
 
 class clAlarm {
@@ -38,17 +39,25 @@ class clAlarm {
         String getTimeString(void);
         String getWeckTage(void);
 
+        uint16_t getWeckStundeValue(void);
+        uint16_t getWeckMinuteValue(void);
+        uint16_t getWeckWeekDayValue(void);
+
+        void setNewAlarmHour(String); 
+        void setNewAlarmMinute(String); 
+        void setNewWeekDay(String);
+
         bool getStatus(void);
         bool setNewAlarmTime(void);
         bool setStartStopAlarm(void);
                
-        void setAlarmInaktive(void);
         void setTime(stAlarmTime *_AlarmTime);
         void Start(void); 
         void Stop(void);
 
         static bool enableAlarmTime(clIn *_switch);
         static void Check(void);
+        static uint16_t getNextAlarm(void);
 
     private:
         clOut *buzzer;

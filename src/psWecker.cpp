@@ -14,7 +14,7 @@ clAlarm *clAlarm::pclAlarm[MAX_WECKER];
 clAlarm::clAlarm (tm *_AktuelleZeit, clOut *_buzzer, clIn *_switch, stAlarmTime *_stWz) {
     u16AlarmNumber = sAlarmNumber++;        // count instances
 
-    if (u16AlarmNumber < MAX_WECKER) {      // save pointer to instance
+    if (u16AlarmNumber < MAX_WECKER) {      // save pointer to instance for static functions
         pclAlarm[u16AlarmNumber] = this;
     } 
 
@@ -45,6 +45,31 @@ void clAlarm::setTime(stAlarmTime *_AlarmTime) {
     AlarmTime.u16Minute = _AlarmTime->u16Minute;
     AlarmTime.u16Stunde = _AlarmTime->u16Stunde;
     AlarmTime.Wochentag = _AlarmTime->Wochentag;
+    bAktive = _AlarmTime->bActive;
+}
+
+void clAlarm::setNewAlarmHour(String strData) {
+    AlarmTime.u16Stunde = strData.toInt();
+}
+
+void clAlarm::setNewAlarmMinute(String strData) {
+    AlarmTime.u16Minute = strData.toInt();  
+}
+
+void clAlarm::setNewWeekDay(String strData) {
+    AlarmTime.Wochentag = (WEEK_DAY)strData.toInt();
+}
+
+uint16_t clAlarm::getWeckStundeValue(void) {
+    return AlarmTime.u16Stunde;
+}
+
+uint16_t clAlarm::getWeckMinuteValue(void) {
+    return AlarmTime.u16Minute;
+}
+
+uint16_t clAlarm::getWeckWeekDayValue(void) {
+    return (uint16_t)AlarmTime.Wochentag;
 }
 
 String clAlarm::getWeckStunde(void) {
@@ -56,9 +81,7 @@ String clAlarm::getWeckMinute(void) {
 }
 
 String clAlarm::getWeckTage(void) {
-    uint16_t WeckTage = (uint16_t)AlarmTime.Wochentag;
-
-    return String(WeckTage);
+    return String((uint16_t)AlarmTime.Wochentag);
 }
 
 String clAlarm::getTimeString(void) {
@@ -450,4 +473,24 @@ void clAlarm::Check(void) {
                 break;
         }
     }
+}
+
+uint16_t clAlarm::getNextAlarm(void) {
+    uint16_t u16sCount = 0;
+
+    for (u16sCount = 0; u16sCount < sAlarmNumber; u16sCount++) {
+        if (u16sCount >= MAX_WECKER) {
+            break;
+        }
+    
+        // check for alarm is active at the actual day or at the next day
+
+        // check for hour (max hour)
+
+        // check for minute (max minute at the day)
+    
+        // return next alarm 
+    
+    }
+    return 0;
 }

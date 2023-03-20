@@ -175,7 +175,7 @@ const char cHtmlMessage[] PROGMEM = R"=====(
 			<option value=8>Mo. bis Fr.</option>
 			<option value=9>Wochenende</option>
 		</select></td>
-		<td><button name="httpB0">Zeit 0 senden</button></td>
+		<td><button name="httpB0">Zeit 0 speichern</button></td>
 	</tr>
 
 	<tr>		
@@ -194,7 +194,7 @@ const char cHtmlMessage[] PROGMEM = R"=====(
 			<option value=8>Mo. bis Fr.</option>
 			<option value=9>Wochenende</option>
 		</select></td>
-		<td><button name="httpB1">Zeit 1 senden</button></td>
+		<td><button name="httpB1">Zeit 1 speichern</button></td>
 	</tr>
 
 	<tr>
@@ -213,7 +213,7 @@ const char cHtmlMessage[] PROGMEM = R"=====(
 			<option value=8>Mo. bis Fr.</option>
 			<option value=9>Wochenende</option>
 		</select></td>
-		<td><button name="httpB2">Zeit 2 senden</button></td>
+		<td><button name="httpB2">Zeit 2 speichern</button></td>
 	</tr>
 
 	<tr>
@@ -232,7 +232,7 @@ const char cHtmlMessage[] PROGMEM = R"=====(
 			<option value=8>Mo. bis Fr.</option>
 			<option value=9>Wochenende</option>
 		</select></td>
-		<td><button name="httpB3">Zeit 3 senden</button></td>
+		<td><button name="httpB3">Zeit 3 speichern</button></td>
 	</tr>
 
 	<tr>
@@ -251,7 +251,7 @@ const char cHtmlMessage[] PROGMEM = R"=====(
 			<option value=8>Mo. bis Fr.</option>
 			<option value=9>Wochenende</option>
 		</select></td>
-		<td><button name="httpB4">Zeit 4 senden</button></td>
+		<td><button name="httpB4">Zeit 4 speichern</button></td>
 	</tr>
 
 	<tr>
@@ -270,7 +270,7 @@ const char cHtmlMessage[] PROGMEM = R"=====(
 			<option value=8>Mo. bis Fr.</option>
 			<option value=9>Wochenende</option>
 		</select></td>
-		<td><button name="httpB5">Zeit 5 senden</button></td>
+		<td><button name="httpB5">Zeit 5 speichern</button></td>
 	</tr>
 
 	<tr>
@@ -289,7 +289,7 @@ const char cHtmlMessage[] PROGMEM = R"=====(
 			<option value=8>Mo. bis Fr.</option>
 			<option value=9>Wochenende</option>
 		</select></td>
-		<td><button name="httpB6">Zeit 6 senden</button></td>
+		<td><button name="httpB6">Zeit 6 speichern</button></td>
 	</tr>
 </table>
 <br>
@@ -298,7 +298,7 @@ const char cHtmlMessage[] PROGMEM = R"=====(
 
 <form method="post" action="/delete">
 <br>
-<button name="httpReset">Alle Zeiten löschen</button>
+<button name="httpReset">Zeiten auf Werkseinstellungen</button>
 </form>
 
 </body>

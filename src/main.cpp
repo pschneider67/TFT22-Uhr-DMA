@@ -98,13 +98,13 @@ char cDatum[]   PROGMEM = __DATE__;
 
 // definition of alarm times
 stAlarmTime stWz[MAX_WECKER] = {
- 	{WEEK_DAY::MO, 8, 00},
-	{WEEK_DAY::DI, 8, 00},
-	{WEEK_DAY::MI, 8, 00},
-	{WEEK_DAY::DO, 8, 00},
-	{WEEK_DAY::FR, 8, 00},
-	{WEEK_DAY::SA, 8, 00},
-	{WEEK_DAY::SO, 8, 00}
+ 	{WEEK_DAY::MO, 8, 00, false},
+	{WEEK_DAY::DI, 8, 00, false},
+	{WEEK_DAY::MI, 8, 00, false},
+	{WEEK_DAY::DO, 8, 00, false},
+	{WEEK_DAY::FR, 8, 00, false},
+	{WEEK_DAY::SA, 8, 00, false},
+	{WEEK_DAY::SO, 8, 00, false}
 };
 
 // definition of arlam clocks
@@ -116,23 +116,6 @@ std::array<clAlarm, MAX_WECKER> Wecker = {
     clAlarm(&timeinfo, &buzzer, &sw02, &stWz[4]),
     clAlarm(&timeinfo, &buzzer, &sw02, &stWz[5]),
     clAlarm(&timeinfo, &buzzer, &sw02, &stWz[6])
-};
-
-typedef struct {
-	char strStunden[3];
-	char strMinuten[3];
-	char strTage[2];  
-	char strAktiv[2];
-} alarm_data_t;
-
-alarm_data_t WeckerDaten[MAX_WECKER] = {
-	{"00", "00", "0", " "},
-	{"00", "00", "1", " "},
-	{"00", "00", "2", " "},
-	{"00", "00", "3", " "},
-	{"00", "00", "4", " "},
-	{"00", "00", "5", " "},
-	{"00", "00", "6", " "}
 };
 
 bool shouldSaveConfig = false;
@@ -371,9 +354,6 @@ bool changeAlarmTime(uint16_t _u16Nr) {
 		case 10:
 			if (_u16Nr < MAX_WECKER) {	
 				if (Wecker[_u16Nr].setNewAlarmTime()) {
-					Wecker[_u16Nr].getWeckStunde().toCharArray(WeckerDaten[_u16Nr].strStunden, 3);   
-					Wecker[_u16Nr].getWeckMinute().toCharArray(WeckerDaten[_u16Nr].strMinuten, 3);   
-					Wecker[_u16Nr].getWeckTage().toCharArray(WeckerDaten[_u16Nr].strTage, 2);   
 					saveWeckerConfig();
 					bResult = true;
 					u16Status = 0;
@@ -835,15 +815,15 @@ void handleValues() {
 	char cDummy[20];
 
 	for (int i=0; i < MAX_WECKER; i++) {
-		snprintf_P(cDummy, sizeof(cDummy), PSTR("%02d:"), stWz[i].u16Stunde);
+		snprintf_P(cDummy, sizeof(cDummy), PSTR("%02d:"), Wecker[i].getWeckStundeValue());
 		if (i == 0) {
 			strcpy(cHtmlValuesToSend, cDummy);
 		} else {	
 			strcat(cHtmlValuesToSend, cDummy);
 		}
-		snprintf_P(cDummy, sizeof(cDummy), PSTR("%02d,"), stWz[i].u16Minute);
+		snprintf_P(cDummy, sizeof(cDummy), PSTR("%02d,"), Wecker[i].getWeckMinuteValue());
 		strcat(cHtmlValuesToSend, cDummy);
-		snprintf_P(cDummy, sizeof(cDummy), PSTR("%d,"), stWz[i].Wochentag);
+		snprintf_P(cDummy, sizeof(cDummy), PSTR("%d,"), Wecker[i].getWeckWeekDayValue());
 		strcat(cHtmlValuesToSend, cDummy);
 		snprintf_P(cDummy, sizeof(cDummy), PSTR("%d"), Wecker[i].getStatus());
 		strcat(cHtmlValuesToSend, cDummy);
@@ -878,8 +858,8 @@ void handleConfig() {
 			stValueName = String("httpWz") + String(i);
 			Serial.println(stValueName);
 			if (wifiServer.hasArg(stValueName)) {
-				strcpy(WeckerDaten[i].strStunden, wifiServer.arg(stValueName).substring(0,2).c_str());
-				strcpy(WeckerDaten[i].strMinuten, wifiServer.arg(stValueName).substring(3).c_str());
+				Wecker[i].setNewAlarmHour(wifiServer.arg(stValueName).substring(0,2));
+				Wecker[i].setNewAlarmMinute(wifiServer.arg(stValueName).substring(3));
 				bSaveData = true;
 			} else {
 				bSaveData = false;
@@ -887,34 +867,17 @@ void handleConfig() {
 			stValueName = String("httpTage") + String(i);
 			Serial.println(stValueName);
 			if (wifiServer.hasArg(stValueName)) {
-				strcpy(WeckerDaten[i].strTage, wifiServer.arg(stValueName).substring(0,2).c_str());
+				Wecker[i].setNewWeekDay(wifiServer.arg(stValueName).substring(0,2));
 			}
 			stValueName = String("httpAktiv") + String(i);
 			Serial.println(stValueName);
 			if (wifiServer.hasArg(stValueName)) {
-				strcpy(WeckerDaten[i].strAktiv, "*");
-			} else if (bSaveData) {
-				strcpy(WeckerDaten[i].strAktiv, " ");
-			}
-
-			String Data = (String)WeckerDaten[i].strStunden;
-			stWz[i].u16Stunde = Data.toInt();  
-
-			Data = (String)WeckerDaten[i].strMinuten;
-			stWz[i].u16Minute = Data.toInt();
-
-			Data = (String)WeckerDaten[i].strTage;
-			stWz[i].Wochentag = (WEEK_DAY)Data.toInt();
-
-			Wecker[i].setTime(&stWz[i]);
-			if (WeckerDaten[i].strAktiv[0] == '*') {
-				Serial.println((String)".. Wecker " + String(i) + (String)" ist aktiv");
 				Wecker[i].Start();
-			} else {
+				Serial.println((String)".. Wecker " + String(i) + (String)" ist aktiv");
+			} else if (bSaveData) {
 				Serial.println((String)".. Wecker " + String(i) + (String)" ist nicht aktiv");
-				Wecker[i].Stop();
-			}	
-
+				Wecker[i].Stop();	
+			}
 		}
 
 		if (i == (MAX_WECKER - 1)) {
@@ -931,11 +894,7 @@ void handleDelete() {
 	LittleFS.remove("/config.json");
 
 	for (int i=0; i < MAX_WECKER; i++) {
-		strcpy(WeckerDaten[i].strAktiv, " ");
-		Wecker[i].Stop();
-		strcpy(WeckerDaten[i].strMinuten, "00");
-		strcpy(WeckerDaten[i].strStunden, "00");
-		strcpy(WeckerDaten[i].strTage, "0");
+		Wecker[i].setTime(&stWz[i]);
 	}
 	
 	saveWeckerConfig();
@@ -991,30 +950,20 @@ void initFs(void) {
 					
 					for (int i = 0; i < iMaxWecker; i++) {
 						snprintf_P(strData, sizeof(strData), PSTR("WeckerStunden_%i") , i);
-						strcpy(WeckerDaten[i].strStunden, json[strData]);
-						
+						Wecker[i].setNewAlarmHour(json[strData]);
+												
 						snprintf_P(strData, sizeof(strData), PSTR("WeckerMinuten_%i") , i);
-						strcpy(WeckerDaten[i].strMinuten, json[strData]);
+						Wecker[i].setNewAlarmMinute(json[strData]);
 						
 						snprintf_P(strData, sizeof(strData), PSTR("WeckerTage_%i") , i);
-						strcpy(WeckerDaten[i].strTage, json[strData]);
+						Wecker[i].setNewWeekDay(json[strData]);
 						
 						snprintf_P(strData, sizeof(strData), PSTR("WeckerAktiv_%i") , i);
-						strcpy(WeckerDaten[i].strAktiv, json[strData]); 
-
-						String Data = (String)WeckerDaten[i].strStunden;
-						stWz[i].u16Stunde = Data.toInt();  
-
-						Data = (String)WeckerDaten[i].strMinuten;
-						stWz[i].u16Minute = Data.toInt();
-
-						Data = (String)WeckerDaten[i].strTage;
-						stWz[i].Wochentag = (WEEK_DAY)Data.toInt();
-
-						Wecker[i].setTime(&stWz[i]);
-						if (WeckerDaten[i].strAktiv[0] == '*') {
+						if (json[strData] == String('*')) {
 							Serial.println((String)".. Wecker " + String(i) + (String)" ist aktiv");
 							Wecker[i].Start();
+						} else {
+							Wecker[i].Stop();
 						}	
 					}					
 					Serial.print(F("memory used : "));
@@ -1045,14 +994,14 @@ void saveWeckerConfig(void) {
 
 	for(int i = 0; i < MAX_WECKER; i++) {
 		snprintf_P(strData, sizeof(strData), PSTR("WeckerStunden_%i") , i);
-		json[strData] = WeckerDaten[i].strStunden;
+		json[strData] = Wecker[i].getWeckStunde(); 
 		
 		snprintf_P(strData, sizeof(strData), PSTR("WeckerMinuten_%i") , i);
-		json[strData] = WeckerDaten[i].strMinuten;
+		json[strData] = Wecker[i].getWeckMinute();
 		
 		snprintf_P(strData, sizeof(strData), PSTR("WeckerTage_%i") , i);
-		json[strData] = WeckerDaten[i].strTage;
-
+		json[strData] = Wecker[i].getWeckTage(); 
+		
 		snprintf_P(strData, sizeof(strData), PSTR("WeckerAktiv_%i") , i);
 		if (Wecker[i].getStatus()) {
 			json[strData] = "*";  
