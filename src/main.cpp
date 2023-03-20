@@ -144,7 +144,6 @@ menue_t hmMenue[8] = {
 	{runAlarmTime_2, 	"Weckzeit 1 einstellen", false},		// 2
 	{runWeatherForcast, "Wettervorschau 1",      false},		// 3
 	{runWeatherForcast, "Wettervorschau 2",      false},		// 4
-	{runStartStopAlarm, "Weckzeiten einsellen",  false},		// 5
 	{runState,        	"Statusanzeige",         false},		// 6
 	{runDeleteFile,   	"Delete Konfiguration",   true}			// 7
 };
@@ -281,8 +280,8 @@ void loop(void) {
 
 void showLabel(void) {
 	char strText[40];
-	char strIp[13];
-	WiFi.localIP().toString().toCharArray(strIp, 13);
+	char strIp[16];
+	WiFi.localIP().toString().toCharArray(strIp, 16);
 	snprintf_P(strText, sizeof(strText), PSTR("%s - %s"), WiFi.SSID().c_str(), strIp);
 	showState(strText);
 }
@@ -345,71 +344,6 @@ void showState(const char* _strData) {
 bool runMainMenue(void) {
 	return clAlarm::enableAlarmTime(&sw02);
 } 
-
-bool runStartStopAlarm(void) {
-	static uint16_t u16Status = 0;
-	static uint16_t u16StatusOld = 1;
-	static uint16_t u16AlarmNumber = 0;
-
-	static uint32_t u32Timeout = 0;
-	
-	bool bResult = false;
-
-	if (u16Status != u16StatusOld) {
-		Serial.println(TraceTime() + String("runStartStopAlarm - ") + String(u16Status));
-		u16StatusOld = u16Status;
-	}
-
-	switch (u16Status) {
-		case 0:
-			if (!sw02.Status() && !sw01.Status()) {	
-				u16AlarmNumber = 0;
-				u16Status = 5;
-			}
-			break;
-		case 5:
-			bResult = true;
-			if (sw02.Status()) {
-				u16Status = 10;
-			} 
-			break;
-		case 10:
-			if (!sw02.Status()) {
-				char strData[40];
-				snprintf_P(strData, sizeof(strData), "Weckzeit %i ein / aus", u16AlarmNumber);
-				showState(strData);
-				u32Timeout = millis();
-				u16Status = 20;
-			}
-			break;
-		case 20:
-			if (Wecker[u16AlarmNumber].setStartStopAlarm()) {
-				bResult = true;
-				saveWeckerConfig();
-				u16Status = 0;
-			} else if (millis() > (u32Timeout + 3000)) {
-				bResult = true;
-				u16Status = 0;
-			} 
-			
-			if (sw01.Status()) {
-				if (++u16AlarmNumber >= MAX_WECKER) {
-					u16AlarmNumber = 0;
-				}
-				u16Status = 30;
-			} 
-			break;
-		case 30:
-			if (!sw01.Status()) {
-				u16Status = 10;
-			}
-			break;
-		default:
-			break;
-	}
-	
-	return bResult;
-}
 
 bool changeAlarmTime(uint16_t _u16Nr) {
 	static uint16_t u16Status = 0;

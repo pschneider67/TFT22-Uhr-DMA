@@ -126,7 +126,6 @@ bool runAlarmTime_2(void);
 bool runState(void);
 bool runDeleteFile(void);
 bool runWeatherForcast(void);
-bool runStartStopAlarm(void);
 
 void irqTimer0(void);
 void irqSw01(void);
