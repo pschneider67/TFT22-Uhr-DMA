@@ -80,6 +80,8 @@ WiFiManager wifiManager;
 WiFiClient wifiClient;
 ESP8266WebServer wifiServer(80);
 
+char cHtmlValuesToSend[60];
+
 clOut led;
 clOut buzzer;
 
@@ -115,6 +117,7 @@ std::array<clAlarm, MAX_WECKER> Wecker = {
     clAlarm(&timeinfo, &buzzer, &sw02, &stWz[5]),
     clAlarm(&timeinfo, &buzzer, &sw02, &stWz[6])
 };
+
 typedef struct {
 	char strStunden[3];
 	char strMinuten[3];
@@ -135,15 +138,15 @@ alarm_data_t WeckerDaten[MAX_WECKER] = {
 bool shouldSaveConfig = false;
 
 menue_t hmMenue[8] = { 
-//   function                   menue string             last item
-	{runMainMenue,    	String(" "),                     false},		// 0
-	{runAlarmTime_1, 	String("Weckzeit 0 einstellen"), false},		// 1	
-	{runAlarmTime_2, 	String("Weckzeit 1 einstellen"), false},		// 2
-	{runWeatherForcast, String("Wettervorschau 1"),      false},		// 3
-	{runWeatherForcast, String("Wettervorschau 2"),      false},		// 4
-	{runStartStopAlarm, String("Weckzeiten einsellen"),  false},		// 5
-	{runState,        	String("Statusanzeige"),         false},		// 6
-	{runDeleteFile,   	String("Delete Konfiguration"),   true}			// 7
+//   function           menue string             last item
+	{runMainMenue,    	" ",                     false},		// 0
+	{runAlarmTime_1, 	"Weckzeit 0 einstellen", false},		// 1	
+	{runAlarmTime_2, 	"Weckzeit 1 einstellen", false},		// 2
+	{runWeatherForcast, "Wettervorschau 1",      false},		// 3
+	{runWeatherForcast, "Wettervorschau 2",      false},		// 4
+	{runStartStopAlarm, "Weckzeiten einsellen",  false},		// 5
+	{runState,        	"Statusanzeige",         false},		// 6
+	{runDeleteFile,   	"Delete Konfiguration",   true}			// 7
 };
 
 // menue control
@@ -223,8 +226,10 @@ void setup() {
 // loop
 // ---------------------------------------------------------------------------------------------------
 void loop(void) {
-	String strText = String(tempToday, 1) + String("'C - ") + String(humidityToday, 0) + String("% - ") + String(pressureToday, 0) + String("hPa");
-	static String strTextOld = " ";
+	char strText[40];
+	snprintf_P(strText, sizeof(strText), PSTR("%2.1f'C - %i%s - %ihPa"), tempToday, (int)humidityToday, "%", (int)pressureToday);
+	
+	static char strTextOld[40] = " ";
 	
 	ArduinoOTA.handle(); 					// OTA Upload via ArduinoIDE
 	
@@ -236,22 +241,24 @@ void loop(void) {
 
 	time(&actualTime);					 	// get actual time
 	localtime_r(&actualTime, &timeinfo); 	// write actual time to timeinfo 
+	
 	clAlarm::Check();						// check alarm time
+	
 	showDateAndTime(timeinfo); 				
 	showAlarmTime(false);
 	HMenue.runMenue();						// run menue
 	
 	if (HMenue.getAktualMenue() != 0) {
-		strTextOld = " ";
+		memset(strTextOld, 0, sizeof(strTextOld));
 	}
 
 	wifiServer.handleClient();
 
-	// show clock and weather only at menue piont 0
+	// show clock and weather only at menue number 0
 	switch (HMenue.getAktualMenue()) {
 		case 0:
-			if (strTextOld != strText) {
-				strTextOld = strText;
+			if (strcmp(strTextOld, strText) != 0) {
+				strcpy(strTextOld, strText);
 				showState(strText);
 			}
 		case 1:
@@ -273,12 +280,16 @@ void loop(void) {
 }
 
 void showLabel(void) {
-	String strText = WiFi.SSID() + String(" - ") + WiFi.localIP().toString();
+	char strText[40];
+	char strIp[13];
+	WiFi.localIP().toString().toCharArray(strIp, 13);
+	snprintf_P(strText, sizeof(strText), PSTR("%s - %s"), WiFi.SSID().c_str(), strIp);
 	showState(strText);
 }
 
 void showVersion(void) {
-	String strText = String("Ver. ") + String(cVersion) + String(" - ") + String(cDatum); 
+	char strText[40];
+	snprintf_P(strText, sizeof(strText), PSTR("Ver. %s - %s"), cVersion, cDatum); 
 	showState(strText);
 }
 
@@ -310,9 +321,9 @@ void showWeatherIcon(const unsigned short* _image, uint16_t _xpos, uint16_t _ypo
 	tft.pushImage(_xpos, _ypos, 64, 64, _image);
 }
 
-void showState(String _strData) {
-	static String strOld = " ";
-
+void showState(const char* _strData) {
+	static char strOld[40] = {""};
+			
 	tft.setFreeFont(DefaultFont);
 	tft.setTextSize(1);	
 
@@ -325,7 +336,7 @@ void showState(String _strData) {
 	tft.drawCentreString(_strData, tftWidth / 2, yBottom + 8, 1);
 	tft.setFreeFont(NULL);
 
-	strOld = _strData;
+	strcpy(strOld, _strData);
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -364,7 +375,9 @@ bool runStartStopAlarm(void) {
 			break;
 		case 10:
 			if (!sw02.Status()) {
-				showState(String("Weckzeit ") + String(u16AlarmNumber) + String(" ein / aus"));
+				char strData[40];
+				snprintf_P(strData, sizeof(strData), "Weckzeit %i ein / aus", u16AlarmNumber);
+				showState(strData);
 				u32Timeout = millis();
 				u16Status = 20;
 			}
@@ -503,9 +516,9 @@ bool runDeleteFile(void) {
 			break;
 		case 10:
 			if (LittleFS.remove(cFile)) {
-				showState(String("config. deleted"));
+				showState("config. deleted");
 			} else {
-				showState(String("delete error"));
+				showState("delete error");
 			}
 			u32Timer = millis();
 			u16Status = 20;
@@ -657,7 +670,7 @@ void showAlarmTime(bool _bForce) {
 	tft.setTextSize(1);	
 	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
 
-//	for (int i = 0; i < MAX_WECKER; i++) {
+	//for (int i = 0; i < MAX_WECKER; i++) {
 	for (int i = 0; i < 2; i++) {
 		uint16_t y = 141 + (i * yFontHeight + 2); 
 
@@ -868,8 +881,10 @@ void initNetwork(void) {
 		tft.drawString(".. WLan connected", 10, 40);
 		String strText = String(".. ") + WiFi.SSID() + String(" - ") + WiFi.localIP().toString();
 		tft.drawString(strText, 10, 70);
-	  	wifiServer.on("/", handleConfig);
-		wifiServer.on("/save.html", handlePage);
+		wifiServer.on("/", handleIndex);
+		wifiServer.on("/values", HTTP_GET, handleValues);
+	  	wifiServer.on("/config", handleConfig);
+		wifiServer.on("/delete", handleDelete);
 		wifiServer.begin();
 		Serial.println(".. server online");
 		delay(4000);
@@ -881,139 +896,125 @@ void initNetwork(void) {
 	}
 }
 
+void handleValues() {
+	Serial.println("** handleValues");
+	char cDummy[20];
+
+	for (int i=0; i < MAX_WECKER; i++) {
+		snprintf_P(cDummy, sizeof(cDummy), PSTR("%02d:"), stWz[i].u16Stunde);
+		if (i == 0) {
+			strcpy(cHtmlValuesToSend, cDummy);
+		} else {	
+			strcat(cHtmlValuesToSend, cDummy);
+		}
+		snprintf_P(cDummy, sizeof(cDummy), PSTR("%02d,"), stWz[i].u16Minute);
+		strcat(cHtmlValuesToSend, cDummy);
+		snprintf_P(cDummy, sizeof(cDummy), PSTR("%d,"), stWz[i].Wochentag);
+		strcat(cHtmlValuesToSend, cDummy);
+		snprintf_P(cDummy, sizeof(cDummy), PSTR("%d"), Wecker[i].getStatus());
+		strcat(cHtmlValuesToSend, cDummy);
+		if (i < (MAX_WECKER - 1)) {
+			strcat(cHtmlValuesToSend, ",");
+		}
+	}
+	Serial.println(cHtmlValuesToSend);
+  	wifiServer.send(200, "text/plain", String(cHtmlValuesToSend));
+}
+
+void handleIndex() {
+	Serial.println("** handleIndex");
+	wifiServer.send(200, "text/html", cHtmlMessage);
+}
+
 void handleConfig() {
 	Serial.println("** handleConfig");
 	String stValueName;
 	bool bSaveData = false;
-	
+	bool bSaveAll = false;
+
+	if (wifiServer.hasArg("httpSaveAll")) {
+		bSaveAll = true;
+	}
+
 	for (int i=0; i < MAX_WECKER; i++) {
-		stValueName = String("httpWz") + String(i);
-		Serial.println(stValueName);
-		if (wifiServer.hasArg(stValueName)) {
-			Wecker[i].setTimeString(wifiServer.arg(stValueName));
-			bSaveData = true;
-		} else {
-			bSaveData = false;
+		stValueName = String("httpB") + String(i);
+		if (wifiServer.hasArg(stValueName) || bSaveAll) {
+			Serial.println("set alarm");	
+
+			stValueName = String("httpWz") + String(i);
+			Serial.println(stValueName);
+			if (wifiServer.hasArg(stValueName)) {
+				strcpy(WeckerDaten[i].strStunden, wifiServer.arg(stValueName).substring(0,2).c_str());
+				strcpy(WeckerDaten[i].strMinuten, wifiServer.arg(stValueName).substring(3).c_str());
+				bSaveData = true;
+			} else {
+				bSaveData = false;
+			}
+			stValueName = String("httpTage") + String(i);
+			Serial.println(stValueName);
+			if (wifiServer.hasArg(stValueName)) {
+				strcpy(WeckerDaten[i].strTage, wifiServer.arg(stValueName).substring(0,2).c_str());
+			}
+			stValueName = String("httpAktiv") + String(i);
+			Serial.println(stValueName);
+			if (wifiServer.hasArg(stValueName)) {
+				strcpy(WeckerDaten[i].strAktiv, "*");
+			} else if (bSaveData) {
+				strcpy(WeckerDaten[i].strAktiv, " ");
+			}
+
+			String Data = (String)WeckerDaten[i].strStunden;
+			stWz[i].u16Stunde = Data.toInt();  
+
+			Data = (String)WeckerDaten[i].strMinuten;
+			stWz[i].u16Minute = Data.toInt();
+
+			Data = (String)WeckerDaten[i].strTage;
+			stWz[i].Wochentag = (WEEK_DAY)Data.toInt();
+
+			Wecker[i].setTime(&stWz[i]);
+			if (WeckerDaten[i].strAktiv[0] == '*') {
+				Serial.println((String)".. Wecker " + String(i) + (String)" ist aktiv");
+				Wecker[i].Start();
+			} else {
+				Serial.println((String)".. Wecker " + String(i) + (String)" ist nicht aktiv");
+				Wecker[i].Stop();
+			}	
+
 		}
-		stValueName = String("httpTage") + String(i);
-		Serial.println(stValueName);
-		if (wifiServer.hasArg(stValueName)) {
-			Wecker[i].setWeekDay(wifiServer.arg(stValueName));
-		}
-		stValueName = String("httpAktiv") + String(i);
-		Serial.println(stValueName);
-		if (wifiServer.hasArg(stValueName)) {
-			Wecker[i].setAlarmAktive();
-		} else if (bSaveData) {
-			Wecker[i].setAlarmInaktive();
+
+		if (i == (MAX_WECKER - 1)) {
+			saveWeckerConfig();
 		}
 	}
-	
- 	String message;
-  	message = F(
-		"<!DOCTYPE html>"
-    	"<html lang='de'>"
-    	"<head><title>ESP8266 Wecker</title></head>"
-    	"<body><h1>ESP8266 Wecker</h1>"
- 		
-		"<table>"
- 			"<tr><form method='post' action='/'>"
-				"<td>Weckzeit 0</td>"
-				"<td><input type='checkbox' id='httpAktiv0' name='httpAktiv0'></td>"
-				"<td><input type='time' id='httpWz0' name='httpWz0' value='00:00'></td>"
-			 	"<td><select name='httpTage0' size='1'>"
-			   		"<option value=0>Sonntag</option>"
-		 	  		"<option value=1>Montag</option>"
-					"<option value=2>Dienstag</option>"
-				    "<option value=3>Mittwoch</option>"
-			   		"<option value=4>Donnerstag</option>"
-			   		"<option value=5>Freitag</option>"
-	 	   			"<option value=6>Samstag</option>"
-		 	   		"<option value=7>Jeden Tag</option>"
-	 	   			"<option value=8 selected>Mo. bis Fr.</option>"
-	 	   			"<option value=9>Wochenende</option>"
-		   		"</select></td>"
-			 	"<td><button name='httpWz0'>Zeit 0 senden</button></td>"
-			"</form></tr>"
 
- 			"<tr><form method='post' action='/'>"
-				"<td>Weckzeit 1</td>"
-				"<td><input type='checkbox' id='httpAktiv1' name='httpAktiv1'></td>"
-				"<td><input type='time' id='httpWz1' name='httpWz1' value='00:00'></td>"
-			 	"<td><select name='httpTage1' size='1'>"
-			   		"<option value=0>Sonntag</option>"
-		 	  		"<option value=1>Montag</option>"
-					"<option value=2>Dienstag</option>"
-				    "<option value=3>Mittwoch</option>"
-			   		"<option value=4>Donnerstag</option>"
-			   		"<option value=5>Freitag</option>"
-	 	   			"<option value=6>Samstag</option>"
-		 	   		"<option value=7>Jeden Tag</option>"
-	 	   			"<option value=8 selected>Mo. bis Fr.</option>"
-	 	   			"<option value=9>Wochenende</option>"
-		   		"</select></td>"
-			 	"<td><button name='httpWz1'>Zeit 1 senden</button></td>"
-			"</form></tr>"
-
- 			"<tr><form method='post' action='/'>"
-				"<td>Weckzeit 2</td>"
-				"<td><input type='checkbox' id='httpAktiv2' name='httpAktiv2'></td>"
-				"<td><input type='time' id='httpWz2' name='httpWz2' value='00:00'></td>"
-			 	"<td><select name='httpTage2' size='1'>"
-			   		"<option value=0>Sonntag</option>"
-		 	  		"<option value=1>Montag</option>"
-					"<option value=2>Dienstag</option>"
-				    "<option value=3>Mittwoch</option>"
-			   		"<option value=4>Donnerstag</option>"
-			   		"<option value=5>Freitag</option>"
-	 	   			"<option value=6>Samstag</option>"
-		 	   		"<option value=7>Jeden Tag</option>"
-	 	   			"<option value=8 selected>Mo. bis Fr.</option>"
-	 	   			"<option value=9>Wochenende</option>"
-		   		"</select></td>"
-			 	"<td><button name='httpWz2'>Zeit 2 senden</button></td>"
-			"</form></tr>"
-
- 			"<tr><form method='post' action='/'>"
-				"<td>Weckzeit 3</td>"
-				"<td><input type='checkbox' id='httpAktiv3' name='httpAktiv3'></td>"
-				"<td><input type='time' id='httpWz3' name='httpWz3' value='00:00'></td>"
-			 	"<td><select name='httpTage3' size='1'>"
-			   		"<option value=0>Sonntag</option>"
-		 	  		"<option value=1>Montag</option>"
-					"<option value=2>Dienstag</option>"
-				    "<option value=3>Mittwoch</option>"
-			   		"<option value=4>Donnerstag</option>"
-			   		"<option value=5>Freitag</option>"
-	 	   			"<option value=6>Samstag</option>"
-		 	   		"<option value=7>Jeden Tag</option>"
-	 	   			"<option value=8 selected>Mo. bis Fr.</option>"
-	 	   			"<option value=9>Wochenende</option>"
-		   		"</select></td>"
-			 	"<td><button name='httpWz3'>Zeit 3 senden</button></td>"
-			"</form></tr>"
-
-		"</table>"
-    
-		"</body>"
-		"</html>"
-	);
-	
-	Serial.println(message);
-
-	wifiServer.send(200, "text/html", message);
+	wifiServer.send(200, "text/html", cHtmlSave);
+	stValueName = String("httpReset");
 }
 
-void handlePage() {
-	Serial.println("** handlePage");
+void handleDelete() {
+	Serial.println("reset alarm");	
+	LittleFS.remove("/config.json");
+
+	for (int i=0; i < MAX_WECKER; i++) {
+		strcpy(WeckerDaten[i].strAktiv, " ");
+		Wecker[i].Stop();
+		strcpy(WeckerDaten[i].strMinuten, "00");
+		strcpy(WeckerDaten[i].strStunden, "00");
+		strcpy(WeckerDaten[i].strTage, "0");
+	}
+	
+	saveWeckerConfig();
+	initFs();
+	wifiServer.send(200, "text/html", cHtmlDelete);
 }
 
 void wifiCallback(WiFiManager *_myWiFiManager) {
 	tft.println(" ");
 	tft.println(".. Konfig. Mode aktiv");
-	tft.print("..");
+	tft.print(".. ");
 	tft.println(WiFi.softAPIP());
-	tft.println(String("..") + _myWiFiManager->getConfigPortalSSID());
+	tft.println(String(".. ") + _myWiFiManager->getConfigPortalSSID());
 }
 
 // -----------------------------------------------------------------------------------
@@ -1333,7 +1334,7 @@ void decodeWeatherForcast(String _WetterDaten) {
 		Serial.print(F("memory used : "));
 		Serial.println(jsonWeatherForecast.memoryUsage());
 
-		showState(convertStringToGerman(String("Wetter in ") + strCityNameForecast));
+		showState(convertStringToGerman(String("Wetter in ") + strCityNameForecast).c_str());
 	}
 }
 

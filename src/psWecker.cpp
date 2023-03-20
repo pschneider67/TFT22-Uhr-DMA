@@ -47,34 +47,6 @@ void clAlarm::setTime(stAlarmTime *_AlarmTime) {
     AlarmTime.Wochentag = _AlarmTime->Wochentag;
 }
 
-void clAlarm::setTimeString(String _stTime) {
-    Serial.println(_stTime);  //  "xx:xx"
-    
-    // extract time data
-    if (_stTime.substring(0,2) != " ") {			
-        String stHour = _stTime.substring(0,2);
-        AlarmTime.u16Stunde = stHour.toInt();
-    } 
-
-    if (_stTime.substring(3) != " ") {			
-        String stMinute = _stTime.substring(3);
-        AlarmTime.u16Minute = stMinute.toInt();
-    } 
-}
-
-void clAlarm::setWeekDay(String _day) {
-    Serial.println(_day);
-    AlarmTime.Wochentag = (WEEK_DAY)_day.toInt();
-}
-
-void clAlarm::setAlarmAktive() {
-    bAktive = true;
-}
-
-void clAlarm::setAlarmInaktive() {
-     bAktive = false;
-}
-
 String clAlarm::getWeckStunde(void) {
     return String(AlarmTime.u16Stunde);
 }

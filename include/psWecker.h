@@ -42,10 +42,7 @@ class clAlarm {
         bool setNewAlarmTime(void);
         bool setStartStopAlarm(void);
                
-        void setAlarmAktive(void);
         void setAlarmInaktive(void);
-        void setTimeString(String _stTime);
-        void setWeekDay(String _day);
         void setTime(stAlarmTime *_AlarmTime);
         void Start(void); 
         void Stop(void);

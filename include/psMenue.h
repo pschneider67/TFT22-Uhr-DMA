@@ -8,19 +8,19 @@
 #pragma once
 typedef struct {
     bool (*_cbMenue)(void);     // menue function
-    String _MenueName;          // menue name
+    const char* _pMenueName;     // menue name
     bool _bLastItem;            // end of menu list
 } menue_t;
 
 class clMenue {
     public:
         ~clMenue(){}
-        clMenue (clIn *_switch, menue_t *_MenueArray, void (*_cbAnzeige)(String));
+        clMenue (clIn *_switch, menue_t *_MenueArray, void (*_cbAnzeige)(const char*));
         bool runMenue(void);
         uint16_t getAktualMenue(void);
 
     private:
-        void (*cbAnzeige)(String);	
+        void (*cbAnzeige)(const char*);	
         clIn *Sw;
         uint16_t u16MenueCount;
         uint32_t u32Timer;

@@ -8,7 +8,7 @@
 #include "Arduino.h"
 #include "TFT22-Uhr.h"
 
-clMenue::clMenue(clIn *_switch, menue_t *_MenueArray, void (*_cbAnzeige)(String)) {
+clMenue::clMenue(clIn *_switch, menue_t *_MenueArray, void (*_cbAnzeige)(const char*)) {
     Sw = _switch;
     MenueArray = _MenueArray;
     cbAnzeige = _cbAnzeige;
@@ -38,7 +38,7 @@ bool clMenue::runMenue(void) {
         case 0:     // init
             if (!Sw->Status()) { 
                 u16MenueCount = 0;                                  // actual menue number
-                cbAnzeige(MenueArray[u16MenueCount]._MenueName);    // show actual menue
+                cbAnzeige(MenueArray[u16MenueCount]._pMenueName);   // show actual menue
                 u16RunStatus = 10;
             }
             break;
@@ -54,7 +54,7 @@ bool clMenue::runMenue(void) {
                 } else {
                     u16MenueCount++;
                 }
-                cbAnzeige(MenueArray[u16MenueCount]._MenueName);    // show new menu text
+                cbAnzeige(MenueArray[u16MenueCount]._pMenueName);    // show new menu text
                 u16RunStatus = 30;
             } else {    // function is running
                 u16RunStatus = 50;

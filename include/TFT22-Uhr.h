@@ -25,6 +25,8 @@
 #include "psWecker.h"
 #include "psMenue.h"
 
+#include "html.h"
+
 // weather icons 64x64
 #include "icons/bild_01d.h"
 #include "icons/bild_01n.h"
@@ -88,7 +90,7 @@ void showFrame(void);
 void showDateAndTime(struct tm);
 void showTime(struct tm, bool);
 void showAlarmTime(bool);
-void showState(String strData); 
+void showState(const char* strData); 
 void showWeatherIcon(const unsigned short*, uint16_t, uint16_t);
 void showWeather(const char*, uint16_t, uint16_t); 
 
@@ -109,8 +111,10 @@ String getJsonsDataFromWeb (String, String);
 void saveConfigCallback(void);
 void wifiCallback(WiFiManager *myWiFiManager);
 
+void handleIndex(void);
+void handleValues(void);
+void handleDelete(void); 
 void handleConfig(void);
-void handlePage(void);
 
 void saveWeckerConfig(void);
 void showWeatherString(void);
