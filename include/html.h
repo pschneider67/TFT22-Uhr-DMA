@@ -295,9 +295,9 @@ const char cHtmlMessage[] PROGMEM = R"=====(
 <br>
 <button name="httpSaveAll">Alle Zeiten speichern</button>
 </form>
+<br>
 
 <form method="post" action="/delete">
-<br>
 <button name="httpReset">Zeiten auf Werkseinstellungen</button>
 </form>
 

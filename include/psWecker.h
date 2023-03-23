@@ -18,7 +18,7 @@ enum class WEEK_DAY: uint16_t {
     FR = 5,
     SA = 6,
     ALL = 7,        // alarm active at all day
-    AT = 8,         // alarm active only at work days (MO - FR)
+    WD = 8,         // alarm active only at work days (MO - FR)
     WE = 9          // alarm active anly at weekend (SA und SO)
 };
 
@@ -65,13 +65,14 @@ class clAlarm {
 
         static clAlarm *pclAlarm[MAX_WECKER];
         static uint16_t sAlarmNumber;
-        
+                        
         stAlarmTime AlarmTime;
         
         struct tm *AktuelleZeit;  
 
         uint32_t u32Delay;
         
+        uint16_t u16AlarmNumber;
         uint16_t u16Status;
         uint16_t u16StatusAlarmTime;
         uint16_t u16StatusWzAnzeige;
@@ -80,8 +81,7 @@ class clAlarm {
         uint16_t u16InkZeit;
         uint16_t u16InkTage;
         uint16_t u16Count; 
-        uint16_t u16AlarmNumber;
-
+        
         uint32_t u32Timer1;
         uint32_t u32Timer2;
 

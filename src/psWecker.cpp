@@ -211,10 +211,12 @@ bool clAlarm::setNewAlarmTime(void) {
 }
 
 void clAlarm::Start(void) {
+    AlarmTime.bActive = true;
     bAktive = true;     
 }
 
 void clAlarm::Stop(void) {
+    AlarmTime.bActive = false;
     bAktive = false;     
 }
 
@@ -393,104 +395,129 @@ bool clAlarm::enableAlarmTime(clIn *_switch) {
 }
 
 // ---------------------------------------------------------------------------------------------------
-// check alarm time is running
+// check alarm time
 // ---------------------------------------------------------------------------------------------------
 void clAlarm::Check(void) {
-    static uint16_t u16sCount = 0;
+    uint16_t u16Count = 0;
      
-    for (u16sCount = 0; u16sCount < sAlarmNumber; u16sCount++) {
-        if (u16sCount >= MAX_WECKER) {
+    for (u16Count = 0; u16Count < sAlarmNumber; u16Count++) {
+        if (u16Count >= MAX_WECKER) {
             break;
         }
 
-        pclAlarm[u16sCount]->bTagOk = false;
+        pclAlarm[u16Count]->bTagOk = false;
 
         // check alarm time is active
-        if (pclAlarm[u16sCount]->AlarmTime.Wochentag == (WEEK_DAY)pclAlarm[u16sCount]->AktuelleZeit->tm_wday) {
-            pclAlarm[u16sCount]->bTagOk = true;        
-        } else if (pclAlarm[u16sCount]->AlarmTime.Wochentag == WEEK_DAY::ALL) {
-            pclAlarm[u16sCount]->bTagOk = true;
-        } else if (pclAlarm[u16sCount]->AlarmTime.Wochentag == WEEK_DAY::AT) {
-            if ((pclAlarm[u16sCount]->AktuelleZeit->tm_wday > (uint16_t)WEEK_DAY::SO) && 
-                (pclAlarm[u16sCount]->AktuelleZeit->tm_wday < (uint16_t)WEEK_DAY::SA)) {
-                    pclAlarm[u16sCount]->bTagOk = true;
+        if (pclAlarm[u16Count]->AlarmTime.Wochentag == (WEEK_DAY)pclAlarm[u16Count]->AktuelleZeit->tm_wday) {
+            pclAlarm[u16Count]->bTagOk = true;        
+        } else if (pclAlarm[u16Count]->AlarmTime.Wochentag == WEEK_DAY::ALL) {
+            pclAlarm[u16Count]->bTagOk = true;
+        } else if (pclAlarm[u16Count]->AlarmTime.Wochentag == WEEK_DAY::WD) {
+            if ((pclAlarm[u16Count]->AktuelleZeit->tm_wday > (uint16_t)WEEK_DAY::SO) && 
+                (pclAlarm[u16Count]->AktuelleZeit->tm_wday < (uint16_t)WEEK_DAY::SA)) {
+                    pclAlarm[u16Count]->bTagOk = true;
             }
-        } else if (pclAlarm[u16sCount]->AlarmTime.Wochentag == WEEK_DAY::WE) {
-            if ((pclAlarm[u16sCount]->AktuelleZeit->tm_wday == (uint16_t)WEEK_DAY::SO) ||
-                (pclAlarm[u16sCount]->AktuelleZeit->tm_wday == (uint16_t)WEEK_DAY::SA)) {
-                    pclAlarm[u16sCount]->bTagOk = true;
+        } else if (pclAlarm[u16Count]->AlarmTime.Wochentag == WEEK_DAY::WE) {
+            if ((pclAlarm[u16Count]->AktuelleZeit->tm_wday == (uint16_t)WEEK_DAY::SO) ||
+                (pclAlarm[u16Count]->AktuelleZeit->tm_wday == (uint16_t)WEEK_DAY::SA)) {
+                    pclAlarm[u16Count]->bTagOk = true;
             }
         }
-     
+       
         // switch off alarm sound
-        if (pclAlarm[u16sCount]->cSwitch->Status()) {
-            pclAlarm[u16sCount]->u16Status = 30;
+        if (pclAlarm[u16Count]->cSwitch->Status()) {
+            pclAlarm[u16Count]->u16Status = 30;
         }
 
-        switch (pclAlarm[u16sCount]->u16Status) {
+        switch (pclAlarm[u16Count]->u16Status) {
             case 0:
-                if (pclAlarm[u16sCount]->bTagOk && pclAlarm[u16sCount]->bAktive) {
-                    pclAlarm[u16sCount]->u16Status = 5; 
+                if (pclAlarm[u16Count]->bTagOk && pclAlarm[u16Count]->bAktive) {
+                    pclAlarm[u16Count]->u16Status = 5; 
                 }
                 break;
             case 5:
-                if (!pclAlarm[u16sCount]->bTagOk || !pclAlarm[u16sCount]->bAktive) {
-                    pclAlarm[u16sCount]->u16Status = 0;     
-                } else if ((pclAlarm[u16sCount]->AlarmTime.u16Minute == pclAlarm[u16sCount]->AktuelleZeit->tm_min) && 
-                           (pclAlarm[u16sCount]->AlarmTime.u16Stunde == pclAlarm[u16sCount]->AktuelleZeit->tm_hour)) {
-                    pclAlarm[u16sCount]->u16Count = 0;
-                    pclAlarm[u16sCount]->u32Delay = millis();
-                    pclAlarm[u16sCount]->buzzer->On();
-                    pclAlarm[u16sCount]->u16Status = 10;
+                if (!pclAlarm[u16Count]->bTagOk || !pclAlarm[u16Count]->bAktive) {
+                    pclAlarm[u16Count]->u16Status = 0;     
+                } else if ((pclAlarm[u16Count]->AlarmTime.u16Minute == pclAlarm[u16Count]->AktuelleZeit->tm_min) && 
+                           (pclAlarm[u16Count]->AlarmTime.u16Stunde == pclAlarm[u16Count]->AktuelleZeit->tm_hour)) {
+                    pclAlarm[u16Count]->u16Count = 0;
+                    pclAlarm[u16Count]->u32Delay = millis();
+                    pclAlarm[u16Count]->buzzer->On();
+                    pclAlarm[u16Count]->u16Status = 10;
                 }
                 break;
             case 10:
-                if (millis() > (pclAlarm[u16sCount]->u32Delay + 500)) {
-                    pclAlarm[u16sCount]->u32Delay = millis();
-                    pclAlarm[u16sCount]->buzzer->Off();
-                    pclAlarm[u16sCount]->u16Status = 20;
+                if (millis() > (pclAlarm[u16Count]->u32Delay + 500)) {
+                    pclAlarm[u16Count]->u32Delay = millis();
+                    pclAlarm[u16Count]->buzzer->Off();
+                    pclAlarm[u16Count]->u16Status = 20;
                 }
                 break;
             case 20:
-                if (pclAlarm[u16sCount]->u16Count >= 300) {
-                    pclAlarm[u16sCount]->u16Status = 30;
-                } else if (millis() > (pclAlarm[u16sCount]->u32Delay + 500)) {
-                    pclAlarm[u16sCount]->u16Count++;
-                    pclAlarm[u16sCount]->u32Delay = millis();
-                    pclAlarm[u16sCount]->buzzer->On();
-                    pclAlarm[u16sCount]->u16Status = 10;
+                if (pclAlarm[u16Count]->u16Count >= 300) {
+                    pclAlarm[u16Count]->u16Status = 30;
+                } else if (millis() > (pclAlarm[u16Count]->u32Delay + 500)) {
+                    pclAlarm[u16Count]->u16Count++;
+                    pclAlarm[u16Count]->u32Delay = millis();
+                    pclAlarm[u16Count]->buzzer->On();
+                    pclAlarm[u16Count]->u16Status = 10;
                 }
                 break;
             case 30:
-                pclAlarm[u16sCount]->buzzer->Off();
-                if (pclAlarm[u16sCount]->AlarmTime.u16Minute != pclAlarm[u16sCount]->AktuelleZeit->tm_min) {
-                    pclAlarm[u16sCount]->u16Status = 0;
+                pclAlarm[u16Count]->buzzer->Off();
+                if (pclAlarm[u16Count]->AlarmTime.u16Minute != pclAlarm[u16Count]->AktuelleZeit->tm_min) {
+                    pclAlarm[u16Count]->u16Status = 0;
                 }
                 break;   
             default:
-                pclAlarm[u16sCount]->buzzer->Off();
-                pclAlarm[u16sCount]->u16Status = 0;
+                pclAlarm[u16Count]->buzzer->Off();
+                pclAlarm[u16Count]->u16Status = 0;
                 break;
         }
     }
 }
 
 uint16_t clAlarm::getNextAlarm(void) {
-    uint16_t u16sCount = 0;
+    uint16_t u16Count = 0;
+    uint16_t u16ActHour = pclAlarm[u16Count]->AktuelleZeit->tm_hour;
+    uint16_t u16ActMinutes = pclAlarm[u16Count]->AktuelleZeit->tm_min;
+    uint16_t u16ActTime = (u16ActHour * 60) + u16ActMinutes;
 
-    for (u16sCount = 0; u16sCount < sAlarmNumber; u16sCount++) {
-        if (u16sCount >= MAX_WECKER) {
+    uint16_t u16AlarmHour = 0;
+    uint16_t u16AlarmMinutes = 0;
+    uint16_t u16AlarmTime = 0;
+
+    uint16_t u16TimeDiv = 1000;
+    uint16_t u16TimeDivActual = 0;
+
+    uint16_t u16Result = 0;
+    static uint16_t u16ResultOld = 0;
+
+    for (u16Count = 0; u16Count < sAlarmNumber; u16Count++) {
+        if (u16Count >= MAX_WECKER) {
             break;
         }
-    
-        // check for alarm is active at the actual day or at the next day
 
-        // check for hour (max hour)
+        u16AlarmHour = pclAlarm[u16Count]->AlarmTime.u16Stunde;
+        u16AlarmMinutes = pclAlarm[u16Count]->AlarmTime.u16Minute;
+        if (u16AlarmHour < u16ActHour) {u16AlarmHour = u16AlarmHour + 24;}    // alarm set for the next day
+        u16AlarmTime = (u16AlarmHour * 60) + u16AlarmMinutes;     
 
-        // check for minute (max minute at the day)
-    
-        // return next alarm 
-    
+        u16TimeDivActual = u16AlarmTime - u16ActTime;
+     
+        if (pclAlarm[u16Count]->AlarmTime.bActive) {
+            if (u16TimeDiv > u16TimeDivActual) {
+                u16Result = u16Count;
+                u16TimeDiv = u16TimeDivActual;
+            } 
+        }
     }
-    return 0;
+
+    if (u16ResultOld != u16Result) {
+        Serial.println();
+        Serial.println("** Nächster Alarm ist W" + String(u16Count));
+        u16ResultOld = u16Result;
+    }
+
+    return u16Result;
 }

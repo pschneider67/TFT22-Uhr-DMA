@@ -2,9 +2,9 @@
 // The header file is made by using the fontconvert tool of adafruit gfx library 
 // to scale the font and the tool fontforge to change the order of some character
 // ---------------------------------------------------------------------------------------------------
-// to show ° use '
-// to show ß use &
-// to show ü use (
+// to show ° write '
+// to show ß write &
+// to show ü write (
 // ---------------------------------------------------------------------------------------------------
 const uint8_t Arimo10pt7bBitmaps[] PROGMEM = {
   0x00, 0xFF, 0xFF, 0xF0, 0xF0, 0xDE, 0xF3, 0x10, 0x08, 0x41, 0x10, 0x22,

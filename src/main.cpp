@@ -118,6 +118,8 @@ std::array<clAlarm, MAX_WECKER> Wecker = {
     clAlarm(&timeinfo, &buzzer, &sw02, &stWz[6])
 };
 
+uint16_t u16NextAlarm = 0;
+
 bool shouldSaveConfig = false;
 
 menue_t hmMenue[8] = { 
@@ -219,13 +221,15 @@ void loop(void) {
 	sw02.runState();
 
 	led.SwPort(sw01.Status());				// switch LED on with swith 1 - only for test
+
 	tftBrigthnees();
 
 	time(&actualTime);					 	// get actual time
 	localtime_r(&actualTime, &timeinfo); 	// write actual time to timeinfo 
 	
 	clAlarm::Check();						// check alarm time
-	
+	u16NextAlarm = clAlarm::getNextAlarm();
+
 	showDateAndTime(timeinfo); 				
 	showAlarmTime(false);
 	HMenue.runMenue();						// run menue
@@ -584,13 +588,16 @@ void showAlarmTime(bool _bForce) {
 	tft.setTextSize(1);	
 	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
 
-	//for (int i = 0; i < MAX_WECKER; i++) {
 	for (int i = 0; i < 2; i++) {
-		uint16_t y = 141 + (i * yFontHeight + 2); 
-
+		uint16_t y = 141 + ((i * yFontHeight) + 2); 
+	
 		//   0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
-		//   W 0 :   *   0 5 : 4 5   :        M  o
-		strAlarmTime[i] = Wecker[i].getTimeString(); 		
+		//   W 0 :   *   0 5 : 4 5   :        M  o     -  F  r
+		if (i == 0) {
+			strAlarmTime[i] = Wecker[u16NextAlarm].getTimeString(); 		
+		} else {
+			strAlarmTime[i] = Wecker[i].getTimeString(); 		
+		}
 		strName   = strAlarmTime[i].substring(0,6);	 			// "W0: * "		
 		strHour   = strAlarmTime[i].substring(6,8);				// "05"
 		strMinute = strAlarmTime[i].substring(9,11);			// "45"
@@ -786,6 +793,7 @@ void initNetwork(void) {
 	wifiManager.setAPCallback(wifiCallback);
 	wifiManager.setSaveConfigCallback(saveConfigCallback);
 
+	tft.fillScreen(TFT_BLACK);
 	tft.setCursor(0, 30);
 	tft.setFreeFont(DefaultFont);
 	tft.setTextSize(1);	
