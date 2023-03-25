@@ -74,7 +74,6 @@ const uint16_t xPosWeatherNow = 2 * hSpace;
 const uint16_t yPosWeatherNow = yBottom - (hSpace + 2) - 64;
 
 uint16_t tftWidth;
-uint16_t tftHeight;
 
 WiFiManager wifiManager;
 WiFiClient wifiClient;
