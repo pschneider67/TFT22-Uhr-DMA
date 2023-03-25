@@ -35,16 +35,20 @@
 #include "config.h"   
 // ---------------------------------------------------------------------------------------------------
 
+TFT_eSPI tft = TFT_eSPI();
+
+const GFXfont *DefaultFont = &Arimo10pt7b;
+const GFXfont *TimeFont = &Arimo_Bold_Time54pt7b;
+
+TFT_eSprite actTimeToShow    = TFT_eSprite(&tft); 	// sprite to show acrual time
+TFT_eSprite actDateToShow    = TFT_eSprite(&tft);	// sprite to show actual date
+TFT_eSprite actTimeSecToShow = TFT_eSprite(&tft);	// sprite to show actual time and sec.
+
 #define MY_TZ "CET-1CEST,M3.5.0,M10.5.0/3"			// timezone with buzzertime and wintertime 
 #define MY_NTP_SERVER "europe.pool.ntp.org" 		// used ntp timeserver
 
 time_t actualTime;
 struct tm timeinfo;
-
-TFT_eSPI tft = TFT_eSPI();
-TFT_eSprite actTimeToShow    = TFT_eSprite(&tft); 	// sprite to show acrual time
-TFT_eSprite actDateToShow    = TFT_eSprite(&tft);	// sprite to show actual date
-TFT_eSprite actTimeSecToShow = TFT_eSprite(&tft);	// sprite to show actual time and sec.
 
 // use openweather setup
 char ApiKey[34];
@@ -56,19 +60,16 @@ char strIcon[6];
 
 const char WeekDay[7][5] PROGMEM = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr. ", "Sa. "};
 
-const GFXfont *DefaultFont = &Arimo10pt7b;
-const GFXfont *TimeFont = &Arimo_Bold_Time54pt7b;
-
 const uint16_t hSpace = 8;						// space
 
 const uint16_t yTop = 0;					 	// start upper area
 const uint16_t hTop = 35;						// higth of upper area
 
 const uint16_t hBottom = 35;					// higth of lower area
-const uint16_t yBottom = 240 - hBottom;			// start lower area
+      uint16_t yBottom = 240 - hBottom;			// 240 higth of diplay, start lower area
 
 const uint16_t yMiddle = hTop + hSpace;			// start middle area
-const uint16_t hMiddle = (240 - hTop - hBottom) - (2 * hSpace);		// higth of middle area
+const uint16_t hMiddle = (240 - hTop - hBottom) - (2 * hSpace);		// 240 higth of diplay, higth of middle area
 
 const uint16_t xPosWeatherNow = 2 * hSpace;
 const uint16_t yPosWeatherNow = yBottom - (hSpace + 2) - 64;
@@ -92,7 +93,7 @@ clIn sw01;
 stInput ParamSw02 = {SW_02, CHANGE, 40, 2000, irqSw02, POLARITY::POS, false};
 clIn sw02;
 
-char cVersion[] PROGMEM = "03.00";
+char cVersion[] PROGMEM = "03.01";
 char cDatum[]   PROGMEM = __DATE__;
 
 // definition of alarm times
@@ -128,6 +129,7 @@ menue_t hmMenue[8] = {
 	{runAlarmTime_2, 	"Weckzeit 1 einstellen", false},		// 2
 	{runWeatherForcast, "Wettervorschau 1",      false},		// 3
 	{runWeatherForcast, "Wettervorschau 2",      false},		// 4
+	{runSetAlarm,       "Weckzeiten einstellen", false},		// 5
 	{runState,        	"Statusanzeige",         false},		// 6
 	{runDeleteFile,   	"Delete Konfiguration",   true}			// 7
 };
@@ -212,7 +214,7 @@ void loop(void) {
 	char strText[40];
 	snprintf_P(strText, sizeof(strText), PSTR("%2.1f'C - %i%s - %ihPa"), tempToday, (int)humidityToday, "%", (int)pressureToday);
 	
-	static char strTextOld[40] = " ";
+	static char strTextOld[30] = " ";
 	
 	ArduinoOTA.handle(); 					// OTA Upload via ArduinoIDE
 	
@@ -227,10 +229,10 @@ void loop(void) {
 	localtime_r(&actualTime, &timeinfo); 	// write actual time to timeinfo 
 	
 	clAlarm::Check();						// check alarm time
-	u16NextAlarm = clAlarm::getNextAlarm();
+	u16NextAlarm = clAlarm::getNextAlarm();	// check for next alarm
 
-	showDateAndTime(timeinfo); 				
-	showAlarmTime(false);
+	showDateAndTime(timeinfo); 				// line one to show date and time 		
+	showAlarmTime(false);					
 	HMenue.runMenue();						// run menue
 	
 	if (HMenue.getAktualMenue() != 0) {
@@ -262,66 +264,6 @@ void loop(void) {
 		case 4:
 			break;
 	}		   	
-}
-
-void showLabel(void) {
-	char strText[40];
-	char strIp[16];
-	WiFi.localIP().toString().toCharArray(strIp, 16);
-	snprintf_P(strText, sizeof(strText), PSTR("%s - %s"), WiFi.SSID().c_str(), strIp);
-	showState(strText);
-}
-
-void showVersion(void) {
-	char strText[40];
-	snprintf_P(strText, sizeof(strText), PSTR("Ver. %s - %s"), cVersion, cDatum); 
-	showState(strText);
-}
-
-void showWeather(const char* _strIcon, uint16_t _xpos, uint16_t _ypos) {
-	if      (strcmp(_strIcon, "01d") == 0) {showWeatherIcon(bild_01d, _xpos, _ypos);}
-	else if (strcmp(_strIcon, "01n") == 0) {showWeatherIcon(bild_01n, _xpos, _ypos);}
-	else if (strcmp(_strIcon, "02d") == 0) {showWeatherIcon(bild_02d, _xpos, _ypos);}
-	else if (strcmp(_strIcon, "02n") == 0) {showWeatherIcon(bild_02n, _xpos, _ypos);}
-	else if (strcmp(_strIcon, "03d") == 0) {showWeatherIcon(bild_03d, _xpos, _ypos);}
-	else if (strcmp(_strIcon, "03n") == 0) {showWeatherIcon(bild_03d, _xpos, _ypos);}
-	else if (strcmp(_strIcon, "04d") == 0) {showWeatherIcon(bild_04d, _xpos, _ypos);}
-	else if (strcmp(_strIcon, "04n") == 0) {showWeatherIcon(bild_04d, _xpos, _ypos);}
-	else if (strcmp(_strIcon, "09d") == 0) {showWeatherIcon(bild_09d, _xpos, _ypos);}
-	else if (strcmp(_strIcon, "09n") == 0) {showWeatherIcon(bild_09d, _xpos, _ypos);}
-	else if (strcmp(_strIcon, "10d") == 0) {showWeatherIcon(bild_10d, _xpos, _ypos);}
-	else if (strcmp(_strIcon, "10n") == 0) {showWeatherIcon(bild_10n, _xpos, _ypos);}
-	else if (strcmp(_strIcon, "13d") == 0) {showWeatherIcon(bild_13d, _xpos, _ypos);}
-	else if (strcmp(_strIcon, "13n") == 0) {showWeatherIcon(bild_13d, _xpos, _ypos);}
-	else if (strcmp(_strIcon, "50d") == 0) {showWeatherIcon(bild_50d, _xpos, _ypos);}
-	else if (strcmp(_strIcon, "50n") == 0) {showWeatherIcon(bild_50d, _xpos, _ypos);}
-	else {showWeatherIcon(bild_44, _xpos, _ypos);}
-}
-
-void showWeatherIcon(const unsigned short* _image, uint16_t _xpos, uint16_t _ypos) {
-	uint16_t u16Width = 64;		// icon size
-	uint16_t u16Higth = 64;
-	
-	tft.fillRect(_xpos, _ypos, u16Width, u16Higth, TFT_BLACK);	
-	tft.pushImage(_xpos, _ypos, 64, 64, _image);
-}
-
-void showState(const char* _strData) {
-	static char strOld[40] = {""};
-			
-	tft.setFreeFont(DefaultFont);
-	tft.setTextSize(1);	
-
-	// clear actual string
-	tft.setTextColor(TFT_BLACK, TFT_BLACK);
-	tft.drawCentreString(strOld, tftWidth / 2, yBottom + 8, 1);
-
-	// draw new string
-	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-	tft.drawCentreString(_strData, tftWidth / 2, yBottom + 8, 1);
-	tft.setFreeFont(NULL);
-
-	strcpy(strOld, _strData);
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -368,6 +310,15 @@ bool changeAlarmTime(uint16_t _u16Nr) {
 			break;	
 	}
 	return bResult;
+}
+
+bool runSetAlarm(void) {
+	static uint16_t u16Status = 0;
+	static uint16_t u16StatusOld = 1;
+		
+	bool bResult = false;
+
+	return true;
 }
 
 bool runAlarmTime_1(void) {
@@ -705,6 +656,7 @@ void showTime(struct tm _actTimeinfo, bool _bForce) {
 			actTimeToShow.pushSprite(spriteXPos, spriteYPos);
 
 			tmTimeOld = _actTimeinfo;
+
 			u16State = 30;
 			break;
 		case 30: 	// wait for seccond != 0
@@ -782,7 +734,6 @@ void initDisplay(void) {
 	tft.setTextColor(TFT_WHITE, TFT_BLACK);
 
 	tftWidth = tft.width();
-	tftHeight = tft.height();
 }
 
 // -----------------------------------------------------------------------------------
@@ -910,6 +861,7 @@ void handleDelete() {
 }
 
 void wifiCallback(WiFiManager *_myWiFiManager) {
+	tft.fillScreen(TFT_BLACK);
 	tft.println(" ");
 	tft.println(".. Konfig. Mode aktiv");
 	tft.print(".. ");
@@ -1053,9 +1005,14 @@ String getJsonDataFromWeb (String _Server, String _Url) {
 		Serial.println(TraceTime() + String("connection error") + u16Tries);
 		delay(100);
 	}
-
+	
 	Serial.println(TraceTime() + String("connect to ") + Server);
 	wifiClient.println(_Url);
+
+	while (!wifiClient.available()) {
+      delay(100);
+    }
+
 	return wifiClient.readString();
 }
 
@@ -1278,36 +1235,3 @@ String convertStringToGerman(String strData) {
 	return strData;
 }
 
-void initOTA(void) {
-	Serial.println("-- init OTA");
-	ArduinoOTA.onStart([]() {  
-	 	tft.fillScreen(TFT_BLACK);
-		tft.setFreeFont(DefaultFont);
-		tft.setTextColor(TFT_WHITE, TFT_BLACK);
-		tft.setCursor(0,30);
-		tft.println(F(".. Start Update"));
-	});
- 	ArduinoOTA.onEnd([]() {  
-		tft.println();
-		tft.println(F(".. Restart System"));
-		delay(2000);
-  	});
-	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-		static uint16_t u16FirstCall = true;
-		static uint16_t u16Count = 0;
-		if (u16FirstCall) {
-			tft.print(F(".. Progress: "));
-			u16FirstCall = false;
-		} else {
-			if (u16Count++ == 25) {
-				tft.print(".");
-				u16Count = 0;
-			}
-			if (total == progress) {
-				tft.println();
-				tft.print(F(".. Update ready"));
-			}
-		}
-	});
-	ArduinoOTA.begin(); 	
-}

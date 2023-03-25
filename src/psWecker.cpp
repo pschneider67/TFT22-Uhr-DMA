@@ -505,7 +505,7 @@ uint16_t clAlarm::getNextAlarm(void) {
 
         u16TimeDivActual = u16AlarmTime - u16ActTime;
      
-        if (pclAlarm[u16Count]->AlarmTime.bActive) {
+        if (pclAlarm[u16Count]->AlarmTime.bActive) {            // the alarm must be active to show
             if (u16TimeDiv > u16TimeDivActual) {
                 u16Result = u16Count;
                 u16TimeDiv = u16TimeDivActual;
@@ -515,7 +515,7 @@ uint16_t clAlarm::getNextAlarm(void) {
 
     if (u16ResultOld != u16Result) {
         Serial.println();
-        Serial.println("** Nächster Alarm ist W" + String(u16Count));
+        Serial.println("** Nächster Alarm ist W" + String(u16Result));
         u16ResultOld = u16Result;
     }
 

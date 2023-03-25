@@ -26,6 +26,8 @@
 #include "psMenue.h"
 
 #include "html.h"
+#include "ota.h"
+#include "tft.h"
 
 // weather icons 64x64
 #include "icons/bild_01d.h"
@@ -104,7 +106,12 @@ void initNetwork(void);
 bool initTime(void);
 void initIrq(void);
 void initFs(void);
+
 void initOTA(void);
+void cbOtaOnStart(void);
+void cbOtaOnEnd(void);
+void cbOtaOnProgress(unsigned int progress, unsigned int total);
+void cbOtaOnError(ota_error_t error);
 
 String getJsonsDataFromWeb (String, String);
 
@@ -126,6 +133,7 @@ bool runAlarmTime_2(void);
 bool runState(void);
 bool runDeleteFile(void);
 bool runWeatherForcast(void);
+bool runSetAlarm(void);
 
 void irqTimer0(void);
 void irqSw01(void);
