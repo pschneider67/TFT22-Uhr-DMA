@@ -28,6 +28,7 @@
 #include "html.h"
 #include "ota.h"
 #include "tft.h"
+#include "server.h"
 
 // weather icons 64x64
 #include "icons/bild_01d.h"
@@ -56,18 +57,18 @@
 //
 // ---------------------------------------------------------------------------------------------------
 // Display Aufbau
-// Position x Mitte = (tftWidth / 2) 
+// Position x Mitte = (DISP_WIDTH / 2) 
 // -------------------------------------		oberer Rand y = 0 bis y = 320 Pixel
 // Datum und Uhrzeit
-// ------------------------------------- 		yTopEnde = 40		
-// -------------------------------------    	Anfang mittlerer Bereich yMiddleStart = 40 + Abstand (8)
+// ------------------------------------- 		Y_TOPEnde = 40		
+// -------------------------------------    	Anfang mittlerer Bereich Y_MIDDLEStart = 40 + Abstand (8)
 //
 //   Uhrzeit Anzeige groß
 //
-// -------------------------------------		Ende mittlerer Bereich yMiddleEnd = yBottumStart - Abstand (8)
-// -------------------------------------		yBottumStart = tftWidth - 40
+// -------------------------------------		Ende mittlerer Bereich Y_MIDDLEEnd = yBottumStart - Abstand (8)
+// -------------------------------------		yBottumStart = DISP_WIDTH - 40
 // Wlan ID und IP Adresse 
-// -------------------------------------		unterer Rand y = tftWidth, x = tftHeight = 240 Pixel
+// -------------------------------------		unterer Rand y = DISP_WIDTH, x = tftHeight = 240 Pixel
 
 // For the Adafruit shield, these are the default.
 //#define TFT_DC      2        	// GPIO 2  - NodeMCU D4
@@ -86,15 +87,9 @@
 #define ROTATION_180  2
 #define ROTATION_270  3
 
-void showLabel(void);
-void showVersion(void);
-void showFrame(void);
 void showDateAndTime(struct tm);
 void showTime(struct tm, bool);
 void showAlarmTime(bool);
-void showState(const char* strData); 
-void showWeatherIcon(const unsigned short*, uint16_t, uint16_t);
-void showWeather(const char*, uint16_t, uint16_t); 
 
 bool enableAlarmTime(clIn *);
 void tftBrigthnees(void);
@@ -107,33 +102,19 @@ bool initTime(void);
 void initIrq(void);
 void initFs(void);
 
-void initOTA(void);
-void cbOtaOnStart(void);
-void cbOtaOnEnd(void);
-void cbOtaOnProgress(unsigned int progress, unsigned int total);
-void cbOtaOnError(ota_error_t error);
-
 String getJsonsDataFromWeb (String, String);
 
 void saveConfigCallback(void);
 void wifiCallback(WiFiManager *myWiFiManager);
 
-void handleIndex(void);
-void handleValues(void);
-void handleDelete(void); 
-void handleConfig(void);
-
 void saveWeckerConfig(void);
 void showWeatherString(void);
-bool changeAlarmTime(uint16_t);  
+bool changeAlarmTime(void);  
 
 bool runMainMenue(void);
-bool runAlarmTime_1(void);
-bool runAlarmTime_2(void);
 bool runState(void);
 bool runDeleteFile(void);
 bool runWeatherForcast(void);
-bool runSetAlarm(void);
 
 void irqTimer0(void);
 void irqSw01(void);

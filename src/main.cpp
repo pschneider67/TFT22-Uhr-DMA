@@ -60,27 +60,9 @@ char strIcon[6];
 
 const char WeekDay[7][5] PROGMEM = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr. ", "Sa. "};
 
-const uint16_t hSpace = 8;						// space
-
-const uint16_t yTop = 0;					 	// start upper area
-const uint16_t hTop = 35;						// higth of upper area
-
-const uint16_t hBottom = 35;					// higth of lower area
-      uint16_t yBottom = 240 - hBottom;			// 240 higth of diplay, start lower area
-
-const uint16_t yMiddle = hTop + hSpace;			// start middle area
-const uint16_t hMiddle = (240 - hTop - hBottom) - (2 * hSpace);		// 240 higth of diplay, higth of middle area
-
-const uint16_t xPosWeatherNow = 2 * hSpace;
-const uint16_t yPosWeatherNow = yBottom - (hSpace + 2) - 64;
-
-uint16_t tftWidth;
-
 WiFiManager wifiManager;
 WiFiClient wifiClient;
 ESP8266WebServer wifiServer(80);
-
-char cHtmlValuesToSend[60];
 
 clOut led;
 clOut buzzer;
@@ -118,20 +100,17 @@ std::array<clAlarm, MAX_WECKER> Wecker = {
     clAlarm(&timeinfo, &buzzer, &sw02, &stWz[6])
 };
 
-uint16_t u16NextAlarm = 0;
-
 bool shouldSaveConfig = false;
 
 menue_t hmMenue[8] = { 
 //   function           menue string             last item
-	{runMainMenue,    	" ",                     false},		// 0
-	{runAlarmTime_1, 	"Weckzeit 0 einstellen", false},		// 1	
-	{runAlarmTime_2, 	"Weckzeit 1 einstellen", false},		// 2
-	{runWeatherForcast, "Wettervorschau 1",      false},		// 3
-	{runWeatherForcast, "Wettervorschau 2",      false},		// 4
-	{runSetAlarm,       "Weckzeiten einstellen", false},		// 5
-	{runState,        	"Statusanzeige",         false},		// 6
-	{runDeleteFile,   	"Delete Konfiguration",   true}			// 7
+	{runMainMenue,    	" ",                     false},		
+	{changeAlarmTime, 	"Weckzeit 0 einstellen", false},			
+	{changeAlarmTime, 	"Weckzeit 1 einstellen", false},		
+	{runWeatherForcast, "Wettervorschau 1",      false},		
+	{runWeatherForcast, "Wettervorschau 2",      false},		
+	{runState,        	"Statusanzeige",         false},		
+	{runDeleteFile,   	"Delete Konfiguration",   true}			
 };
 
 // menue control
@@ -204,7 +183,7 @@ void setup() {
 	initIrq();
 	initFs();	// read config data of clock
 
-	showWeatherIcon(bild_44, xPosWeatherNow, yPosWeatherNow);
+	showWeatherIcon(bild_44, X_POS_WEATHER_NOW, Y_POS_WEATHER_NOW);
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -229,11 +208,11 @@ void loop(void) {
 	localtime_r(&actualTime, &timeinfo); 	// write actual time to timeinfo 
 	
 	clAlarm::Check();						// check alarm time
-	u16NextAlarm = clAlarm::getNextAlarm();	// check for next alarm
+	clAlarm::NextAlarm();					// check for next alarm
 
 	showDateAndTime(timeinfo); 				// line one to show date and time 		
 	showAlarmTime(false);					
-	HMenue.runMenue();						// run menue
+	HMenue.handle();						// run menue
 	
 	if (HMenue.getAktualMenue() != 0) {
 		memset(strTextOld, 0, sizeof(strTextOld));
@@ -256,7 +235,7 @@ void loop(void) {
 			showTime(timeinfo, false);
 			if (bGetWeather) {
 				getActualWeather();	
-				showWeather(strIconToday.c_str(), xPosWeatherNow, yPosWeatherNow);
+				showWeather(strIconToday.c_str(), X_POS_WEATHER_NOW, Y_POS_WEATHER_NOW);
 				bGetWeather = false;
 			}	
 			break;
@@ -273,11 +252,19 @@ bool runMainMenue(void) {
 	return clAlarm::enableAlarmTime(&sw02);
 } 
 
-bool changeAlarmTime(uint16_t _u16Nr) {
+bool changeAlarmTime(void) {
 	static uint16_t u16Status = 0;
 	static uint16_t u16StatusOld = 1;
 		
 	bool bResult = false;
+
+	uint16_t _u16Nr;
+	
+	switch (HMenue.getAktualMenue()) {
+		case 1: _u16Nr = 0; break;
+		case 2: _u16Nr = 1; break;
+		default: _u16Nr = 0; break;
+	}
 
 	if (u16Status != u16StatusOld) {
 		Serial.println(TraceTime() + String("changeAlarmTime - ") + String(u16Status));
@@ -310,22 +297,6 @@ bool changeAlarmTime(uint16_t _u16Nr) {
 			break;	
 	}
 	return bResult;
-}
-
-bool runSetAlarm(void) {
-	static uint16_t u16Status = 0;
-	static uint16_t u16StatusOld = 1;
-		
-	bool bResult = false;
-
-	return true;
-}
-
-bool runAlarmTime_1(void) {
-	return changeAlarmTime(0);
-}
-bool runAlarmTime_2(void) {
-	return changeAlarmTime(1);
 }
 
 bool runState(void) {
@@ -438,11 +409,11 @@ bool runWeatherForcast (void) {
 			break;
 		case 40:
 			if (!sw02.Status()) {
-				tft.fillRect(5, yMiddle + 5, tftWidth - 10, hMiddle - 10, TFT_BLACK);	// clear screen 
+				tft.fillRect(5, Y_MIDDLE + 5, DISP_WIDTH - 10, H_MIDDLE - 10, TFT_BLACK);	// clear screen 
 				showAlarmTime(true);
 				showTime(timeinfo, true);
 				bGetWeather = true;														// load weather icon
-				showWeather(strIconToday.c_str(), xPosWeatherNow, yPosWeatherNow);
+				showWeather(strIconToday.c_str(), X_POS_WEATHER_NOW, Y_POS_WEATHER_NOW);
 				u16Status = 0;
 			}
 			break;
@@ -454,24 +425,17 @@ bool runWeatherForcast (void) {
 	return bResult;
 }
 
-void showFrame(void) {
-	tft.fillScreen(TFT_BLACK);
-	tft.drawRoundRect(1, yTop, tftWidth - 1, hTop, 10, TFT_BLUE);
-	tft.drawRoundRect(1, yMiddle, tftWidth - 1, hMiddle, 10, TFT_BLUE);
-	tft.drawRoundRect(1, yBottom, tftWidth - 1, hBottom, 10, TFT_BLUE);
-}
-
 void showDateAndTime(struct tm _actTimeinfo) {
 	uint16_t spriteHigth = 18;
 	
 	// date
-	uint16_t spriteWidth1 = (tftWidth / 2) - 20;
-	uint16_t spriteXPos1  = hSpace;	
+	uint16_t spriteWidth1 = (DISP_WIDTH / 2) - 20;
+	uint16_t spriteXPos1  = H_SPACE;	
 	uint16_t spriteYPos1  = 9;
 
 	// time
-	uint16_t spriteWidth2 = (tftWidth / 2) - 75;
-	uint16_t spriteXPos2  = (tftWidth / 2) + 75 - hSpace;	
+	uint16_t spriteWidth2 = (DISP_WIDTH / 2) - 75;
+	uint16_t spriteXPos2  = (DISP_WIDTH / 2) + 75 - H_SPACE;	
 	uint16_t spriteYPos2  = 9;
 
 	char str[20];
@@ -530,7 +494,7 @@ void showAlarmTime(bool _bForce) {
 	String strMinute;
 	String strDay;
 
-	uint16_t xOffset = 64 + (2 * hSpace);
+	uint16_t xOffset = 64 + (2 * H_SPACE);
 	uint16_t yFontHeight = 21;
 	uint16_t xFontWidth = 10;
 
@@ -543,11 +507,7 @@ void showAlarmTime(bool _bForce) {
 	
 		//   0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
 		//   W 0 :   *   0 5 : 4 5   :        M  o     -  F  r
-		if (i == 0) {
-			strAlarmTime[i] = Wecker[u16NextAlarm].getTimeString(); 		
-		} else {
-			strAlarmTime[i] = Wecker[i].getTimeString(); 		
-		}
+		strAlarmTime[i] = Wecker[i].getTimeString(); 		
 		strName   = strAlarmTime[i].substring(0,6);	 			// "W0: * "		
 		strHour   = strAlarmTime[i].substring(6,8);				// "05"
 		strMinute = strAlarmTime[i].substring(9,11);			// "45"
@@ -597,10 +557,10 @@ void showTime(struct tm _actTimeinfo, bool _bForce) {
 	static uint16_t u16State = 0;
 	static tm tmTimeOld;
  
-	uint16_t spriteWidth = tftWidth - (4 * hSpace);
+	uint16_t spriteWidth = DISP_WIDTH - (4 * H_SPACE);
 	uint16_t spriteHigth = 81;
-	uint16_t spriteYPos  = yMiddle + (hSpace / 2);
-	uint16_t spriteXPos  = tftWidth - spriteWidth - (2 * hSpace);	
+	uint16_t spriteYPos  = Y_MIDDLE + (H_SPACE / 2);
+	uint16_t spriteXPos  = DISP_WIDTH - spriteWidth - (2 * H_SPACE);	
 
 	char str[8];
 	String strZeit;
@@ -730,10 +690,7 @@ void initDisplay(void) {
 	tft.setSwapBytes(true);				// used by push image function
 	tft.setRotation(ROTATION_90);
 	tft.fillScreen(TFT_BLACK);
-
 	tft.setTextColor(TFT_WHITE, TFT_BLACK);
-
-	tftWidth = tft.width();
 }
 
 // -----------------------------------------------------------------------------------
@@ -757,6 +714,7 @@ void initNetwork(void) {
 		wifiServer.on("/values", HTTP_GET, handleValues);
 	  	wifiServer.on("/config", handleConfig);
 		wifiServer.on("/delete", handleDelete);
+		wifiServer.on("/weather", handleWeather);
 		wifiServer.begin();
 		Serial.println(".. server online");
 		delay(4000);
@@ -766,98 +724,6 @@ void initNetwork(void) {
 		delay(2000);
 		while (true) {;}
 	}
-}
-
-void handleValues() {
-	Serial.println("** handleValues");
-	char cDummy[20];
-
-	for (int i=0; i < MAX_WECKER; i++) {
-		snprintf_P(cDummy, sizeof(cDummy), PSTR("%02d:"), Wecker[i].getWeckStundeValue());
-		if (i == 0) {
-			strcpy(cHtmlValuesToSend, cDummy);
-		} else {	
-			strcat(cHtmlValuesToSend, cDummy);
-		}
-		snprintf_P(cDummy, sizeof(cDummy), PSTR("%02d,"), Wecker[i].getWeckMinuteValue());
-		strcat(cHtmlValuesToSend, cDummy);
-		snprintf_P(cDummy, sizeof(cDummy), PSTR("%d,"), Wecker[i].getWeckWeekDayValue());
-		strcat(cHtmlValuesToSend, cDummy);
-		snprintf_P(cDummy, sizeof(cDummy), PSTR("%d"), Wecker[i].getStatus());
-		strcat(cHtmlValuesToSend, cDummy);
-		if (i < (MAX_WECKER - 1)) {
-			strcat(cHtmlValuesToSend, ",");
-		}
-	}
-	Serial.println(cHtmlValuesToSend);
-  	wifiServer.send(200, "text/plain", String(cHtmlValuesToSend));
-}
-
-void handleIndex() {
-	Serial.println("** handleIndex");
-	wifiServer.send(200, "text/html", cHtmlMessage);
-}
-
-void handleConfig() {
-	Serial.println("** handleConfig");
-	String stValueName;
-	bool bSaveData = false;
-	bool bSaveAll = false;
-
-	if (wifiServer.hasArg("httpSaveAll")) {
-		bSaveAll = true;
-	}
-
-	for (int i=0; i < MAX_WECKER; i++) {
-		stValueName = String("httpB") + String(i);
-		if (wifiServer.hasArg(stValueName) || bSaveAll) {
-			Serial.println("set alarm");	
-
-			stValueName = String("httpWz") + String(i);
-			Serial.println(stValueName);
-			if (wifiServer.hasArg(stValueName)) {
-				Wecker[i].setNewAlarmHour(wifiServer.arg(stValueName).substring(0,2));
-				Wecker[i].setNewAlarmMinute(wifiServer.arg(stValueName).substring(3));
-				bSaveData = true;
-			} else {
-				bSaveData = false;
-			}
-			stValueName = String("httpTage") + String(i);
-			Serial.println(stValueName);
-			if (wifiServer.hasArg(stValueName)) {
-				Wecker[i].setNewWeekDay(wifiServer.arg(stValueName).substring(0,2));
-			}
-			stValueName = String("httpAktiv") + String(i);
-			Serial.println(stValueName);
-			if (wifiServer.hasArg(stValueName)) {
-				Wecker[i].Start();
-				Serial.println((String)".. Wecker " + String(i) + (String)" ist aktiv");
-			} else if (bSaveData) {
-				Serial.println((String)".. Wecker " + String(i) + (String)" ist nicht aktiv");
-				Wecker[i].Stop();	
-			}
-		}
-
-		if (i == (MAX_WECKER - 1)) {
-			saveWeckerConfig();
-		}
-	}
-
-	wifiServer.send(200, "text/html", cHtmlSave);
-	stValueName = String("httpReset");
-}
-
-void handleDelete() {
-	Serial.println("reset alarm");	
-	LittleFS.remove("/config.json");
-
-	for (int i=0; i < MAX_WECKER; i++) {
-		Wecker[i].setTime(&stWz[i]);
-	}
-	
-	saveWeckerConfig();
-	initFs();
-	wifiServer.send(200, "text/html", cHtmlDelete);
 }
 
 void wifiCallback(WiFiManager *_myWiFiManager) {
@@ -1164,7 +1030,7 @@ void decodeWeatherForcast(String _WetterDaten) {
 		}
 		
 		// clear middle area
-		tft.fillRect(5, yMiddle + 5, tftWidth - 10, hMiddle - 10, TFT_BLACK);
+		tft.fillRect(5, Y_MIDDLE + 5, DISP_WIDTH - 10, H_MIDDLE - 10, TFT_BLACK);
 		tft.setFreeFont(DefaultFont);
 		tft.setTextSize(1);	
 		tft.setTextColor(TFT_YELLOW, TFT_BLACK);
@@ -1172,10 +1038,10 @@ void decodeWeatherForcast(String _WetterDaten) {
 		for (int i=0; i<u16Count; i++) {
 			yield();
 			tft.setFreeFont(DefaultFont);
-			tft.drawCentreString(String(cDay[i]), 8 + ((i * 80) + 32), yMiddle + 8, 1);
-			showWeather(strIconForecast[i].c_str(), 8 + (i * 80), yMiddle + 30);
-			tft.drawCentreString(String(tempMaxForecast[i], 0) + String("'C"), 8 + ((i * 80) + 32), yMiddle + 8 + 64 + 24, 1);
-			tft.drawCentreString(String(humidityForecast[i], 0) + String("%"), 8 + ((i * 80) + 32), yMiddle + 8 + 64 + 48, 1);
+			tft.drawCentreString(String(cDay[i]), 8 + ((i * 80) + 32), Y_MIDDLE + 8, 1);
+			showWeather(strIconForecast[i].c_str(), 8 + (i * 80), Y_MIDDLE + 30);
+			tft.drawCentreString(String(tempMaxForecast[i], 0) + String("'C"), 8 + ((i * 80) + 32), Y_MIDDLE + 8 + 64 + 24, 1);
+			tft.drawCentreString(String(humidityForecast[i], 0) + String("%"), 8 + ((i * 80) + 32), Y_MIDDLE + 8 + 64 + 48, 1);
 		}
 		
 		Serial.print(F("memory used : "));

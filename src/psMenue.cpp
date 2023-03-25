@@ -22,11 +22,11 @@ uint16_t clMenue::getAktualMenue(void) {
     return u16MenueCount;
 }
 
-bool clMenue::runMenue(void) {
+bool clMenue::handle(void) {
     bool bResult = false;
     
     if (u16RunStatus != u16RunStatusOld) {
-		Serial.println(TraceTime() + String("clMenue::runMenue - ") + String(u16RunStatus));
+		Serial.println(TraceTime() + String("clMenue::handle - ") + String(u16RunStatus));
 		u16RunStatusOld = u16RunStatus;
 	}
 

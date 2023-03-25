@@ -5,75 +5,6 @@
  *      Author: pschneider
  */
 
-/*
-const char cHtmlMessage[] PROGMEM = R"=====(
-<!DOCTYPE html>
-<html>
-<head>
-	<title>ESP8266 Server Values</title>
-	<script>
-		window.addEventListener("load", function() {
-			var xhr = new XMLHttpRequest();
-			xhr.onreadystatechange = function() {
-				if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-					var response = xhr.responseText;
-					var values = response.split(",");
-					document.getElementById("temperature").innerHTML = values[0];
-					document.getElementById("humidity").innerHTML = values[1];
-					document.getElementById("light").innerHTML = values[2];
-				}
-			};
-			xhr.open("GET", "/values");
-			xhr.send();
-		});
-	</script>
-</head>
-<body>
-	<h1>ESP8266 Server Values</h1>
-	
-	<!-- Values from ESP8266 Server -->
-	<p>Temperature: <span id="temperature"></span></p>
-	<p>Humidity: <span id="humidity"></span></p>
-	<p>Light: <span id="light"></span></p>
-</body>
-</html>
-)=====";
-
-
-const char cHtmlMessage[] PROGMEM = R"=====(
-<!DOCTYPE html>
-<html>
-<head>
-	<title>ESP8266 Server Values</title>
-		<script>
-		window.addEventListener("load", function() {
-			var xhr = new XMLHttpRequest();
-			xhr.onreadystatechange = function() {
-				if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
-					var response = xhr.responseText;
-					var values = response.split(",");
-					document.getElementById("temperature").innerHTML = values[0];
-					document.getElementById("humidity").innerHTML = values[1];
-					document.getElementById("light").innerHTML = values[2];
-				}
-			};
-			xhr.open("GET", "/values");
-			xhr.send();
-		});
-	</script>
-</head>
-<body>
-	<h1>ESP8266 Server Values</h1>
-	
-	<!-- Values from ESP8266 Server -->
-	<p>Temperature: <span id="temperature"></span></p>
-	<p>Humidity: <span id="humidity"></span></p>
-	<p>Light: <span id="light"></span></p>
-</body>
-</html>
-)=====";
-*/
-
 const char cHtmlMessage[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html lang="de">
@@ -300,6 +231,10 @@ const char cHtmlMessage[] PROGMEM = R"=====(
 <form method="post" action="/delete">
 <button name="httpReset">Zeiten auf Werkseinstellungen</button>
 </form>
+<br>
+<form method="post" action="/weather">
+<button name="httpReset">Wetter Konfiguration</button>
+</form>
 
 </body>
 </html>
@@ -336,6 +271,25 @@ const char cHtmlSave[] PROGMEM = R"=====(
 <body><h1>ESP8266 Wecker</h1>
 <form method="post" action="/">
 Neue Zeiten wurden gespichert<br><br>
+<button name="httpBack">zurück</button>
+</form>
+
+</body>
+</html>
+)=====";
+
+const char cHtmlWeather[] PROGMEM = R"=====(
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <title>ESP8266 Wecker</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body><h1>ESP8266 Wecker</h1>
+<form method="post" action="/">
+Hier entsteht eine neue Seite<br><br>
 <button name="httpBack">zurück</button>
 </form>
 

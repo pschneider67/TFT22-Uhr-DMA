@@ -477,7 +477,7 @@ void clAlarm::Check(void) {
     }
 }
 
-uint16_t clAlarm::getNextAlarm(void) {
+uint16_t clAlarm::NextAlarm(void) {
     uint16_t u16Count = 0;
     uint16_t u16ActHour = pclAlarm[u16Count]->AktuelleZeit->tm_hour;
     uint16_t u16ActMinutes = pclAlarm[u16Count]->AktuelleZeit->tm_min;

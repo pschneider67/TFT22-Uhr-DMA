@@ -11,8 +11,6 @@ extern char cVersion[] PROGMEM;
 extern char cDatum[]   PROGMEM;
 
 extern TFT_eSPI tft;
-extern uint16_t tftWidth;
-extern uint16_t yBottom;
 
 extern TFT_eSprite actTimeToShow;
 extern TFT_eSprite actDateToShow;
@@ -71,12 +69,19 @@ void showState(const char* _strData) {
 
 	// clear actual string
 	tft.setTextColor(TFT_BLACK, TFT_BLACK);
-	tft.drawCentreString(strOld, tftWidth / 2, yBottom + 8, 1);
+	tft.drawCentreString(strOld, DISP_WIDTH / 2, Y_BOTTOM + 8, 1);
 
 	// draw new string
 	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-	tft.drawCentreString(_strData, tftWidth / 2, yBottom + 8, 1);
+	tft.drawCentreString(_strData, DISP_WIDTH / 2, Y_BOTTOM + 8, 1);
 	tft.setFreeFont(NULL);
 
 	strcpy(strOld, _strData);
+}
+
+void showFrame(void) {
+	tft.fillScreen(TFT_BLACK);
+	tft.drawRoundRect(1, Y_TOP, DISP_WIDTH - 1, H_TOP, 10, TFT_BLUE);
+	tft.drawRoundRect(1, Y_MIDDLE, DISP_WIDTH - 1, H_MIDDLE, 10, TFT_BLUE);
+	tft.drawRoundRect(1, Y_BOTTOM, DISP_WIDTH - 1, H_BOTTOM, 10, TFT_BLUE);
 }

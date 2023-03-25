@@ -16,7 +16,7 @@ class clMenue {
     public:
         ~clMenue(){}
         clMenue (clIn *_switch, menue_t *_MenueArray, void (*_cbAnzeige)(const char*));
-        bool runMenue(void);
+        bool handle(void);
         uint16_t getAktualMenue(void);
 
     private:

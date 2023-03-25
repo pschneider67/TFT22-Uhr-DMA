@@ -57,7 +57,7 @@ class clAlarm {
 
         static bool enableAlarmTime(clIn *_switch);
         static void Check(void);
-        static uint16_t getNextAlarm(void);
+        static uint16_t NextAlarm(void);
 
     private:
         clOut *buzzer;
