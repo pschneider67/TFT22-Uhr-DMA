@@ -62,7 +62,11 @@ const char WeekDay[7][5] PROGMEM = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr.
 
 WiFiManager wifiManager;
 WiFiClient wifiClient;
-ESP8266WebServer wifiServer(80);
+ESP8266WebServer wifiServer;
+
+// Set the username and password for the webserver
+const char* http_username = "admin";
+const char* http_password = "mohmumoha";
 
 clOut led;
 clOut buzzer;
@@ -193,9 +197,10 @@ void loop(void) {
 	char strText[40];
 	snprintf_P(strText, sizeof(strText), PSTR("%2.1f'C - %i%s - %ihPa"), tempToday, (int)humidityToday, "%", (int)pressureToday);
 	
-	static char strTextOld[30] = " ";
+	static char strTextOld[40] = " ";
 	
 	ArduinoOTA.handle(); 					// OTA Upload via ArduinoIDE
+	wifiServer.handleClient();
 	
 	sw01.runState();
 	sw02.runState();
@@ -217,8 +222,6 @@ void loop(void) {
 	if (HMenue.getAktualMenue() != 0) {
 		memset(strTextOld, 0, sizeof(strTextOld));
 	}
-
-	wifiServer.handleClient();
 
 	// show clock and weather only at menue number 0
 	switch (HMenue.getAktualMenue()) {
@@ -564,7 +567,7 @@ void showTime(struct tm _actTimeinfo, bool _bForce) {
 
 	char str[8];
 	String strZeit;
-	String strInfo = "wait for NTP and weather";
+	String strInfo = "wait for weather data";
 
 	switch (u16State)  	{
 		case 0: 	// init time if ntp call is ready for the first time
@@ -649,10 +652,20 @@ void tftBrigthnees(void) {
 IRAM_ATTR void irqTimer0(void) {
 	//Serial.println(TraceTime() + "Timer IRQ");
 	static uint32_t weatherTimer = 0;
+	static uint32_t authenticationTimer = 0;
 
 	if (++weatherTimer >= 60 * 15) {
 		weatherTimer = 0;
 		bGetWeather = true;
+	}
+
+	// reset authentication after 3 min.
+	if (getAuthentication()) {
+		if (++authenticationTimer >= 60 * 3) {
+			clearAuthentication();
+		}
+	} else {
+		authenticationTimer = 0;
 	}
 
 	timer0_write(ESP.getCycleCount() + 80000000L); // for 80MHz this means 1 interrupt per seccond
@@ -715,6 +728,8 @@ void initNetwork(void) {
 	  	wifiServer.on("/config", handleConfig);
 		wifiServer.on("/delete", handleDelete);
 		wifiServer.on("/weather", handleWeather);
+		wifiServer.on("/Authentication", handleAuthentication);
+		wifiServer.on("/logout", handleLogout);
 		wifiServer.begin();
 		Serial.println(".. server online");
 		delay(4000);

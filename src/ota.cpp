@@ -15,6 +15,7 @@ extern const GFXfont *DefaultFont;
 // -----------------------------------------------------------------------------------
 void initOTA(void) {
 	Serial.println("-- init OTA");
+	// set callback functions
 	ArduinoOTA.onStart(cbOtaOnStart);
 	ArduinoOTA.onEnd(cbOtaOnEnd);
 	ArduinoOTA.onProgress(cbOtaOnProgress);
@@ -31,14 +32,14 @@ void cbOtaOnStart(void) {
 }
 
 void cbOtaOnEnd(void) {
-	tft.println();
 	tft.println(F(".. Restart System"));
-	delay(1000);
+	delay(3000);
 }
 
 void cbOtaOnProgress(unsigned int progress, unsigned int total) {
 	static uint16_t u16FirstCall = true;
 	static uint16_t u16Count = 0;
+
 	if (u16FirstCall) {
 		tft.print(F(".. Progress: "));
 		u16FirstCall = false;
@@ -47,27 +48,29 @@ void cbOtaOnProgress(unsigned int progress, unsigned int total) {
 			tft.print(F("."));
 			u16Count = 0;
 		}
-		if (total == progress) {
-			tft.println();
-			tft.print(F(".. Update ready"));
-		}
+	}
+
+	if (progress == total) {
+		tft.println();
+		tft.println(F(".. Data sent ready"));
 	}
 }
 
 void cbOtaOnError(ota_error_t error) {
-	tft.print(F("/n"));
+	tft.println();
     Serial.printf("Fehler beim OTA-Update [%u]: ", error);
     if (error == OTA_AUTH_ERROR) {
-		tft.print(F(".. Authentifizierungsfehler"));
+		tft.println(F(".. Authentifizierungsfehler"));
 	} else if (error == OTA_BEGIN_ERROR) {
-		tft.print(F(".. Fehler beim Starten des OTA-Updates"));
+		tft.println(F(".. Fehler beim Starten des OTA-Updates"));
 	} else if (error == OTA_CONNECT_ERROR) {
-		tft.print(F(".. Verbindungsfehler"));
+		tft.println(F(".. Verbindungsfehler"));
 	} else if (error == OTA_RECEIVE_ERROR) {
-		tft.print(F(".. Empfangsfehler"));
+		tft.println(F(".. Empfangsfehler"));
     } else if (error == OTA_END_ERROR) {
-		tft.print(F(".. Fehler beim Beenden des OTA-Updates"));
+		tft.println(F(".. Fehler beim Beenden des OTA-Updates"));
 	} else {
-		tft.print(F(".. OTA Fehler"));
+		tft.println(F(".. OTA Fehler"));
 	}
+	delay(3000);
 }

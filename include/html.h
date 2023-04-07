@@ -5,6 +5,37 @@
  *      Author: pschneider
  */
 
+const char cHtmlAuthentication[] PROGMEM = R"=====(
+<!DOCTYPE html>
+<html lang="de">
+<head>
+   	<title>ESP8266 Wecker</title>
+   	<meta charset="UTF-8">
+   	<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body><h1>ESP8266 Wecker</h1>
+
+<br>
+Bitte melden Sie sich an
+<br><br>
+
+<form method="post" action="/Authentication">
+<label for="user">Benutzer:
+	<input id="user" name="user">
+</label>
+<br><br>
+<label for="passwdr">Passwort:
+	<input id="passwd" name="passwd">
+</label>
+<br><br>
+<button name="httpLogIn">Login</button>
+</form>
+
+</body>
+</html>
+)=====";
+
 const char cHtmlMessage[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html lang="de">
@@ -233,8 +264,13 @@ const char cHtmlMessage[] PROGMEM = R"=====(
 </form>
 <br>
 <form method="post" action="/weather">
-<button name="httpReset">Wetter Konfiguration</button>
+<button name="httpReset">Wecker Konfiguration</button>
 </form>
+<br>
+<form method="post" action="/logout">
+<button name="httpLogOut">Logout</button>
+</form>
+
 
 </body>
 </html>
@@ -290,6 +326,25 @@ const char cHtmlWeather[] PROGMEM = R"=====(
 <body><h1>ESP8266 Wecker</h1>
 <form method="post" action="/">
 Hier entsteht eine neue Seite<br><br>
+<button name="httpBack">zurück</button>
+</form>
+
+</body>
+</html>
+)=====";
+
+const char cHtmlLogout[] PROGMEM = R"=====(
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <title>ESP8266 Wecker</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body><h1>ESP8266 Wecker</h1>
+<form method="post" action="/">
+Logout ok<br><br>
 <button name="httpBack">zurück</button>
 </form>
 
