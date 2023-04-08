@@ -14,6 +14,10 @@ extern ESP8266WebServer wifiServer;
 extern std::array<clAlarm, MAX_WECKER> Wecker;
 extern stAlarmTime stWz[MAX_WECKER];
 
+// Set the username and password for the webserver
+extern const char* http_username;
+extern const char* http_password;
+
 bool getAuthentication(void) {
 	return bAuthentication;
 }
@@ -36,14 +40,14 @@ void handleAuthentication(void) {
 
 	if (wifiServer.hasArg("user")) {
 		Serial.println(wifiServer.arg("user"));
-		if (strcmp(wifiServer.arg("user").c_str(), "admin") == 0) {
+		if (strcmp(wifiServer.arg("user").c_str(), http_username) == 0) {
 			u16Result++;
 		}
 	}
 
 	if (wifiServer.hasArg("passwd")) {
 		Serial.println(wifiServer.arg("passwd"));
-		if (strcmp(wifiServer.arg("passwd").c_str(), "13579") == 0) {
+		if (strcmp(wifiServer.arg("passwd").c_str(), http_password) == 0) {
 			u16Result++;
 		}
 	}

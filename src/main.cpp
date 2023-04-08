@@ -62,11 +62,12 @@ const char WeekDay[7][5] PROGMEM = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr.
 
 WiFiManager wifiManager;
 WiFiClient wifiClient;
-ESP8266WebServer wifiServer;
+ESP8266WebServer wifiServer(80);
 
 // Set the username and password for the webserver
 const char* http_username = "admin";
-const char* http_password = "mohmumoha";
+const char* http_password = "13579";
+const char* cDnsName = "ESPWecker01";
 
 clOut led;
 clOut buzzer;
@@ -195,10 +196,10 @@ void setup() {
 // ---------------------------------------------------------------------------------------------------
 void loop(void) {
 	char strText[40];
-	snprintf_P(strText, sizeof(strText), PSTR("%2.1f'C - %i%s - %ihPa"), tempToday, (int)humidityToday, "%", (int)pressureToday);
-	
 	static char strTextOld[40] = " ";
-	
+
+	snprintf_P(strText, sizeof(strText), PSTR("%2.1f'C - %i%s - %ihPa"), tempToday, (int)humidityToday, "%", (int)pressureToday);
+
 	ArduinoOTA.handle(); 					// OTA Upload via ArduinoIDE
 	wifiServer.handleClient();
 	
@@ -723,6 +724,9 @@ void initNetwork(void) {
 		tft.drawString(".. WLan connected", 10, 40);
 		String strText = String(".. ") + WiFi.SSID() + String(" - ") + WiFi.localIP().toString();
 		tft.drawString(strText, 10, 70);
+
+		MDNS.begin(cDnsName);
+
 		wifiServer.on("/", handleIndex);
 		wifiServer.on("/values", HTTP_GET, handleValues);
 	  	wifiServer.on("/config", handleConfig);

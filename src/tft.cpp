@@ -62,7 +62,7 @@ void showWeatherIcon(const unsigned short* _image, uint16_t _xpos, uint16_t _ypo
 }
 
 void showState(const char* _strData) {
-	static char strOld[40] = {""};
+	static char strOld[40] = {"                                       "};
 			
 	tft.setFreeFont(DefaultFont);
 	tft.setTextSize(1);	
