@@ -34,7 +34,6 @@
 // ---------------------------------------------------------------------------------------------------
 #include "config.h"   
 // ---------------------------------------------------------------------------------------------------
-
 TFT_eSPI tft = TFT_eSPI();
 
 const GFXfont *DefaultFont = &Arimo10pt7b;
@@ -172,21 +171,41 @@ void setup() {
 	Serial.println(F("- TFT2.2 clock spi                   -"));
 	Serial.println(F("--------------------------------------"));
 
-	snprintf_P(strDummy, sizeof(strDummy), PSTR("version        - %s"), cVersion);
+	snprintf_P(strDummy, sizeof(strDummy), PSTR("version            - %s"), cVersion);
 	Serial.println(String(strDummy));
-	snprintf_P(strDummy, sizeof(strDummy), PSTR("build date     - %s"), cDatum);
+	snprintf_P(strDummy, sizeof(strDummy), PSTR("build date         - %s"), cDatum);
 	Serial.println(String(strDummy));
-	Serial.print(String(F("esp core       - ")));
+	Serial.print(String(F("esp core           - ")));
 	Serial.println(ESP.getCoreVersion());
-	Serial.print(String(F("free heap size - ")));
-	Serial.println(ESP.getFreeHeap());
+	Serial.print(String(F("free heap size     - ")));
+	Serial.print(ESP.getFreeHeap());
+	Serial.println(String(F(" byte")));
+	Serial.print(String(F("free sktech memory - ")));
+	Serial.print(ESP.getFreeSketchSpace());
+	Serial.println(String(F(" byte")));
+
+	if (SPIFFS.begin()) {		// mount 
+
+		FSInfo fs_info;
+		SPIFFS.info(fs_info);
+		Serial.println(".. FS mounted");
+
+		Serial.println("   blockSize:     " + (String)fs_info.blockSize);
+		Serial.println("   maxOpenFiles:  " + (String)fs_info.maxOpenFiles);
+		Serial.println("   maxPathLength: " + (String)fs_info.maxPathLength);
+		Serial.println("   pageSize:      " + (String)fs_info.pageSize);
+		Serial.println("   totalBytes:    " + (String)fs_info.totalBytes);
+		Serial.println("   usedBytes:     " + (String)fs_info.usedBytes);
+	} else {
+		Serial.println(".. FS mounted error");
+	}
 
 	tftBrigthnees();
 	showFrame();
 	configTime(MY_TZ, MY_NTP_SERVER);
 
 	initIrq();
-	initFs();	// read config data of clock
+	readConfigFile();	// read config data of clock
 
 	showWeatherIcon(bild_44, X_POS_WEATHER_NOW, Y_POS_WEATHER_NOW);
 }
@@ -358,7 +377,7 @@ bool runDeleteFile(void) {
 			}
 			break;
 		case 10:
-			if (LittleFS.remove(cFile)) {
+			if (SPIFFS.remove(cFile)) {
 				showState("config. deleted");
 			} else {
 				showState("delete error");
@@ -663,7 +682,7 @@ IRAM_ATTR void irqTimer0(void) {
 	// reset authentication after 3 min.
 	if (getAuthentication()) {
 		if (++authenticationTimer >= 60 * 3) {
-			clearAuthentication();
+			//clearAuthentication();
 		}
 	} else {
 		authenticationTimer = 0;
@@ -757,69 +776,61 @@ void wifiCallback(WiFiManager *_myWiFiManager) {
 // -----------------------------------------------------------------------------------
 // init file system and read configuration
 // -----------------------------------------------------------------------------------
-void initFs(void) {
-	Serial.println(".. mounting FS");
+void readConfigFile(void) {
+	if (SPIFFS.exists("/config.json")) {
+		// file exists, reading and loading
+		Serial.println(".. open config file");
+		File configFile = SPIFFS.open("/config.json", "r");
+		if (configFile) {
+			Serial.println(".. config file readed");
+			size_t size = configFile.size();
+			
+			// allocate a buffer to store contents of the file.
+			std::unique_ptr<char[]> buf(new char[size]);
 
-  	if (LittleFS.begin()) {
+			configFile.readBytes(buf.get(), size);
 
-		//return;  
+			DynamicJsonDocument json(1024);
+			auto deserializeError = deserializeJson(json, buf.get());
+			serializeJson(json, Serial);
+			
+			if (!deserializeError) {
+				Serial.println("\nparsed json");
+				char strData[20];  
+				char strMaxWecker[5];
 
-   		Serial.println(".. FS mounted");
-    	if (LittleFS.exists("/config.json")) {
-      		// file exists, reading and loading
-      		Serial.println(".. open config file");
-      		File configFile = LittleFS.open("/config.json", "r");
-      		if (configFile) {
-        		Serial.println(".. config file readed");
-        		size_t size = configFile.size();
-        		
-				// allocate a buffer to store contents of the file.
-        		std::unique_ptr<char[]> buf(new char[size]);
-
-        		configFile.readBytes(buf.get(), size);
-
-		       	DynamicJsonDocument json(1024);
-        		auto deserializeError = deserializeJson(json, buf.get());
-        		serializeJson(json, Serial);
-        		
-				if (!deserializeError) {
-          			Serial.println("\nparsed json");
-					char strData[20];  
-					char strMaxWecker[5];
-
-					snprintf_P(strData, sizeof(strData), PSTR("MaxWecker"));
-					strcpy(strMaxWecker, json[strData]);
-					String Data = (String)strMaxWecker;
-					int iMaxWecker = Data.toInt();
+				snprintf_P(strData, sizeof(strData), PSTR("MaxWecker"));
+				strcpy(strMaxWecker, json[strData]);
+				String Data = (String)strMaxWecker;
+				int iMaxWecker = Data.toInt();
+				
+				for (int i = 0; i < iMaxWecker; i++) {
+					snprintf_P(strData, sizeof(strData), PSTR("WeckerStunden_%i") , i);
+					Wecker[i].setNewAlarmHour(json[strData]);
+											
+					snprintf_P(strData, sizeof(strData), PSTR("WeckerMinuten_%i") , i);
+					Wecker[i].setNewAlarmMinute(json[strData]);
 					
-					for (int i = 0; i < iMaxWecker; i++) {
-						snprintf_P(strData, sizeof(strData), PSTR("WeckerStunden_%i") , i);
-						Wecker[i].setNewAlarmHour(json[strData]);
-												
-						snprintf_P(strData, sizeof(strData), PSTR("WeckerMinuten_%i") , i);
-						Wecker[i].setNewAlarmMinute(json[strData]);
-						
-						snprintf_P(strData, sizeof(strData), PSTR("WeckerTage_%i") , i);
-						Wecker[i].setNewWeekDay(json[strData]);
-						
-						snprintf_P(strData, sizeof(strData), PSTR("WeckerAktiv_%i") , i);
-						if (json[strData] == String('*')) {
-							Serial.println((String)".. Wecker " + String(i) + (String)" ist aktiv");
-							Wecker[i].Start();
-						} else {
-							Wecker[i].Stop();
-						}	
-					}					
-					Serial.print(F("memory used : "));
-					Serial.println(json.memoryUsage());
-          		} else {
-          			Serial.println(".. failed to load json config");
-        		}
-        		configFile.close();
-      		}
-    	}
+					snprintf_P(strData, sizeof(strData), PSTR("WeckerTage_%i") , i);
+					Wecker[i].setNewWeekDay(json[strData]);
+					
+					snprintf_P(strData, sizeof(strData), PSTR("WeckerAktiv_%i") , i);
+					if (json[strData] == String('*')) {
+						Serial.println((String)".. Wecker " + String(i) + (String)" ist aktiv");
+						Wecker[i].Start();
+					} else {
+						Wecker[i].Stop();
+					}	
+				}					
+				Serial.print(F("memory used : "));
+				Serial.println(json.memoryUsage());
+			} else {
+				Serial.println(".. failed to load json config");
+			}
+			configFile.close();
+		}
   	} else {
-    	Serial.println(".. failed to mount FS");
+    	Serial.println(".. failed to open config file");
   	}
 }
 
@@ -829,7 +840,7 @@ void saveConfigCallback () {
 }
 
 void saveWeckerConfig(void) {
-	Serial.println("Konfiguration speichern");
+	Serial.println(F("Konfiguration speichern"));
 	DynamicJsonDocument json(1024);
 	char strData[20]; 
 	
@@ -853,18 +864,22 @@ void saveWeckerConfig(void) {
 			json[strData] = " ";  
 		}
 	}
-    
-    File configFile = LittleFS.open("/config.json", "w");
-    if (!configFile) {
-    	Serial.println("failed to open config file for writing");
- 	} else {
+
+	Serial.println("** 01");
+	File configFile = SPIFFS.open("/config.json", "w");
+	Serial.println("** 02");
+	if (configFile) {
+		serializeJson(json, Serial);
+		serializeJson(json, configFile);
+		configFile.close();
+		Serial.println("data saved");
+
 		buzzer.On();
 		delay(10);
 		buzzer.Off();
+	} else { 
+		Serial.println("failed to open config file for writing");
 	}
-	serializeJson(json, Serial);
-    serializeJson(json, configFile);
-   	configFile.close();
 }
 
 // -----------------------------------------------------------------------------------

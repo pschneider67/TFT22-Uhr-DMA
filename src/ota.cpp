@@ -14,7 +14,7 @@ extern const GFXfont *DefaultFont;
 // handle OTA
 // -----------------------------------------------------------------------------------
 void initOTA(void) {
-	Serial.println("-- init OTA");
+	Serial.println(".. init OTA");
 	// set callback functions
 	ArduinoOTA.onStart(cbOtaOnStart);
 	ArduinoOTA.onEnd(cbOtaOnEnd);

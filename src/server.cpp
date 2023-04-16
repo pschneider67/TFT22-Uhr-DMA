@@ -141,21 +141,20 @@ void handleConfig() {
 		}
 
 		wifiServer.send(200, "text/html", cHtmlSave);
-		stValueName = String("httpReset");
 	}
 }
 
 void handleDelete() {
 	if (checkAuthentication()) {
 		Serial.println("reset alarm");	
-		LittleFS.remove("/config.json");
+		SPIFFS.remove("/config.json");
 
 		for (int i=0; i < MAX_WECKER; i++) {
 			Wecker[i].setTime(&stWz[i]);
 		}
 		
 		saveWeckerConfig();
-		initFs();
+		readConfigFile();
 		wifiServer.send(200, "text/html", cHtmlDelete);
 	}
 }

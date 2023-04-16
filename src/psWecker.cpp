@@ -8,6 +8,7 @@
 #include "Arduino.h"
 #include "TFT22-Uhr.h"
 
+
 uint16_t clAlarm::sAlarmNumber = 0;
 clAlarm *clAlarm::pclAlarm[MAX_WECKER];
 
@@ -377,8 +378,8 @@ bool clAlarm::enableAlarmTime(clIn *_switch) {
 			}
 
 			if (millis() > (u32AktiveZeit + 2000)) {
-				saveWeckerConfig();
-				u16Status = 0;
+                saveWeckerConfig();
+			    u16Status = 0;
 			}
 			break;
 		case 30:

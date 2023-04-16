@@ -11,7 +11,7 @@
 
 #include <string.h>
 #include <time.h>
-#include <LittleFS.h>
+#include <FS.h>
 #include <SPI.h>
 #include <TFT_eSPI.h> 		
 #include <TimeLib.h>
@@ -101,7 +101,7 @@ void initNetwork(void);
 
 bool initTime(void);
 void initIrq(void);
-void initFs(void);
+void readConfigFile(void);
 
 String getJsonsDataFromWeb (String, String);
 
