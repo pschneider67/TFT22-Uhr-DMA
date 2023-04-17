@@ -865,20 +865,18 @@ void saveWeckerConfig(void) {
 		}
 	}
 
-	Serial.println("** 01");
 	File configFile = SPIFFS.open("/config.json", "w");
-	Serial.println("** 02");
 	if (configFile) {
 		serializeJson(json, Serial);
 		serializeJson(json, configFile);
 		configFile.close();
-		Serial.println("data saved");
+		Serial.println(F("data saved"));
 
 		buzzer.On();
 		delay(10);
 		buzzer.Off();
 	} else { 
-		Serial.println("failed to open config file for writing");
+		Serial.println(F("failed to open config file for writing"));
 	}
 }
 
