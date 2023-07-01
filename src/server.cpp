@@ -54,7 +54,7 @@ void handleAuthentication(void) {
 
 	if (u16Result == 2) {
 		bAuthentication = true;
-		wifiServer.send(200, "text/html", cHtmlMessage);
+		wifiServer.send(200, "text/html", cHtmlConfigPage);
 	} else {
 		wifiServer.send(200, "text/html", cHtmlAuthentication);
 	}	
@@ -90,7 +90,7 @@ void handleValues() {
 void handleIndex() {
 	if (checkAuthentication()) {
 		Serial.println("** handleIndex");
-		wifiServer.send(200, "text/html", cHtmlMessage);
+		wifiServer.send(200, "text/html", cHtmlConfigPage);
 	} 
 }
 

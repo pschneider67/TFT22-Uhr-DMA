@@ -10,7 +10,6 @@
 #include "Arduino.h"
 
 #include <string.h>
-#include <time.h>
 #include <FS.h>
 #include <SPI.h>
 #include <TFT_eSPI.h> 		
@@ -72,8 +71,6 @@
 // -------------------------------------		unterer Rand y = DISP_WIDTH, x = tftHeight = 240 Pixel
 
 // For the Adafruit shield, these are the default.
-//#define TFT_DC      2        	// GPIO 2  - NodeMCU D4
-//#define TFT_CS      5        	// GPIO 5  - NodeMCU D1
 #define TFT_BACKLIGHT 0         // GPIO 0  - NodeMCU D3
 #define TFT_POTI      A0        // TOUT    - NodeMCU A0
 
@@ -99,7 +96,6 @@ void initGpio(void);
 void initDisplay(void);
 void initNetwork(void);
 
-bool initTime(void);
 void initIrq(void);
 void readConfigFile(void);
 

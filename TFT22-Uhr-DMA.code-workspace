@@ -1,0 +1,25 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "Ultraschall",
+			"path": "../Ultraschall"
+		},
+		{
+			"path": "../MQTT-TemperaturSensor"
+		},
+		{
+			"name": "Infrarot",
+			"path": "../Infrarot"
+		},
+		{
+			"path": "../ahoy"
+		},
+		{
+			"path": "../../EspHome"
+		}
+	],
+	"settings": {}
+}

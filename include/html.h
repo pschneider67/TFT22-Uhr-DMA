@@ -36,7 +36,7 @@ Bitte melden Sie sich an
 </html>
 )=====";
 
-const char cHtmlMessage[] PROGMEM = R"=====(
+const char cHtmlConfigPage[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html lang="de">
 <head>

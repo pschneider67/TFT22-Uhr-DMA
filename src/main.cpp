@@ -43,8 +43,8 @@ TFT_eSprite actTimeToShow    = TFT_eSprite(&tft); 	// sprite to show acrual time
 TFT_eSprite actDateToShow    = TFT_eSprite(&tft);	// sprite to show actual date
 TFT_eSprite actTimeSecToShow = TFT_eSprite(&tft);	// sprite to show actual time and sec.
 
-#define MY_TZ "CET-1CEST,M3.5.0,M10.5.0/3"			// timezone with buzzertime and wintertime 
-#define MY_NTP_SERVER "europe.pool.ntp.org" 		// used ntp timeserver
+#define MY_TZ "CET-1CEST,M3.5.0,M10.5.0/3"			// timezone with summertime and wintertime 
+#define MY_NTP_SERVER "pool.ntp.org" 				// used ntp timeserver
 
 time_t actualTime;
 struct tm timeinfo;
@@ -104,17 +104,15 @@ std::array<clAlarm, MAX_WECKER> Wecker = {
     clAlarm(&timeinfo, &buzzer, &sw02, &stWz[6])
 };
 
-bool shouldSaveConfig = false;
-
-menue_t hmMenue[8] = { 
+menue_t hmMenue[7] = { 
 //   function           menue string             last item
-	{runMainMenue,    	" ",                     false},		
-	{changeAlarmTime, 	"Weckzeit 0 einstellen", false},			
-	{changeAlarmTime, 	"Weckzeit 1 einstellen", false},		
-	{runWeatherForcast, "Wettervorschau 1",      false},		
-	{runWeatherForcast, "Wettervorschau 2",      false},		
-	{runState,        	"Statusanzeige",         false},		
-	{runDeleteFile,   	"Delete Konfiguration",   true}			
+	{runMainMenue,    	" ",                     false},	// 0		
+	{changeAlarmTime, 	"Weckzeit 0 einstellen", false},	// 1			
+	{changeAlarmTime, 	"Weckzeit 1 einstellen", false},	// 2	
+	{runWeatherForcast, "Wettervorschau 1",      false},	// 3	
+	{runWeatherForcast, "Wettervorschau 2",      false},	// 4	
+	{runState,        	"Statusanzeige",         false},	// 5	
+	{runDeleteFile,   	"Delete Konfiguration",   true}		// 6	
 };
 
 // menue control
@@ -147,6 +145,8 @@ String strIconForecast[FORECAST];
 String strCityNameForecast;
 
 bool bGetWeather = false;
+
+uint32_t u32GetWeatherTimeout = 0;
 
 char strDummy[30];
 
@@ -202,11 +202,13 @@ void setup() {
 
 	tftBrigthnees();
 	showFrame();
-	configTime(MY_TZ, MY_NTP_SERVER);
+	
+	configTime(MY_TZ, MY_NTP_SERVER, MY_NTP_SERVER, MY_NTP_SERVER);
+	setSyncInterval(3600);	// resync time after 1 hour 
 
 	initIrq();
-	readConfigFile();	// read config data of clock
-
+	readConfigFile();		// read config data of clock
+	
 	showWeatherIcon(bild_44, X_POS_WEATHER_NOW, Y_POS_WEATHER_NOW);
 }
 
@@ -216,8 +218,11 @@ void setup() {
 void loop(void) {
 	char strText[40];
 	static char strTextOld[40] = " ";
-
 	snprintf_P(strText, sizeof(strText), PSTR("%2.1f'C - %i%s - %ihPa"), tempToday, (int)humidityToday, "%", (int)pressureToday);
+
+	if (HMenue.getAktualMenue() != 0) {
+		strTextOld[0] = 0;
+	}
 
 	ArduinoOTA.handle(); 					// OTA Upload via ArduinoIDE
 	wifiServer.handleClient();
@@ -239,14 +244,11 @@ void loop(void) {
 	showAlarmTime(false);					
 	HMenue.handle();						// run menue
 	
-	if (HMenue.getAktualMenue() != 0) {
-		memset(strTextOld, 0, sizeof(strTextOld));
-	}
-
 	// show clock and weather only at menue number 0
 	switch (HMenue.getAktualMenue()) {
 		case 0:
-			if (strcmp(strTextOld, strText) != 0) {
+			if (strcmp(strTextOld, strText) != 0) { 	// check for new status text
+				Serial.println(F("show status menue 0"));
 				strcpy(strTextOld, strText);
 				showState(strText);
 			}
@@ -254,7 +256,6 @@ void loop(void) {
 		case 2:
 		case 5:
 		case 6:
-		case 7:
 			showTime(timeinfo, false);
 			if (bGetWeather) {
 				getActualWeather();	
@@ -436,7 +437,8 @@ bool runWeatherForcast (void) {
 				showAlarmTime(true);
 				showTime(timeinfo, true);
 				bGetWeather = true;														// load weather icon
-				showWeather(strIconToday.c_str(), X_POS_WEATHER_NOW, Y_POS_WEATHER_NOW);
+				showWeatherIcon(bild_44, X_POS_WEATHER_NOW, Y_POS_WEATHER_NOW);
+				//showWeather(strIconToday.c_str(), X_POS_WEATHER_NOW, Y_POS_WEATHER_NOW);
 				u16Status = 0;
 			}
 			break;
@@ -579,6 +581,7 @@ void showAlarmTime(bool _bForce) {
 void showTime(struct tm _actTimeinfo, bool _bForce) {
 	static uint16_t u16State = 0;
 	static tm tmTimeOld;
+	static bool weatherRequest = false;
  
 	uint16_t spriteWidth = DISP_WIDTH - (4 * H_SPACE);
 	uint16_t spriteHigth = 81;
@@ -605,7 +608,7 @@ void showTime(struct tm _actTimeinfo, bool _bForce) {
 		case 5: 	// check for a valide year > 2000 (1900 + 100) 
 			if (_actTimeinfo.tm_year > 100) {
 				actTimeToShow.fillSprite(TFT_BLACK);
-				bGetWeather = true;
+				weatherRequest = true;
 				u16State = 20;
 			} else {
 				u16State = 6;
@@ -640,6 +643,11 @@ void showTime(struct tm _actTimeinfo, bool _bForce) {
 
 			tmTimeOld = _actTimeinfo;
 
+			if (weatherRequest) {
+				bGetWeather = true;
+				weatherRequest = false;
+			}
+			
 			u16State = 30;
 			break;
 		case 30: 	// wait for seccond != 0
@@ -688,6 +696,8 @@ IRAM_ATTR void irqTimer0(void) {
 		authenticationTimer = 0;
 	}
 
+	if (u32GetWeatherTimeout > 0) {u32GetWeatherTimeout--;}
+
 	timer0_write(ESP.getCycleCount() + 80000000L); // for 80MHz this means 1 interrupt per seccond
 }
 
@@ -701,8 +711,10 @@ void initGpio(void) {
 
 	// buzzer
 	buzzer.Init(BUZZER, POLARITY::NEG); // GIPO BUZZER low active
+	/*
 	buzzer.On();
 	delay(10);
+	*/
 	buzzer.Off();
 
 	// LED
@@ -746,7 +758,7 @@ void initNetwork(void) {
 
 		MDNS.begin(cDnsName);
 
-		wifiServer.on("/", handleIndex);
+ 		wifiServer.on("/", handleIndex);
 		wifiServer.on("/values", HTTP_GET, handleValues);
 	  	wifiServer.on("/config", handleConfig);
 		wifiServer.on("/delete", handleDelete);
@@ -766,7 +778,7 @@ void initNetwork(void) {
 
 void wifiCallback(WiFiManager *_myWiFiManager) {
 	tft.fillScreen(TFT_BLACK);
-	tft.println(" ");
+	tft.println();
 	tft.println(".. Konfig. Mode aktiv");
 	tft.print(".. ");
 	tft.println(WiFi.softAPIP());
@@ -795,7 +807,7 @@ void readConfigFile(void) {
 			serializeJson(json, Serial);
 			
 			if (!deserializeError) {
-				Serial.println("\nparsed json");
+				Serial.println(F("\nparsed json"));
 				char strData[20];  
 				char strMaxWecker[5];
 
@@ -836,11 +848,11 @@ void readConfigFile(void) {
 
 // callback notifying us of the need to save config
 void saveConfigCallback () {
-  shouldSaveConfig = true;
+	Serial.println(F("wifi data saved"));
 }
 
 void saveWeckerConfig(void) {
-	Serial.println(F("Konfiguration speichern"));
+	Serial.println(F("alarm clock configuration saved"));
 	DynamicJsonDocument json(1024);
 	char strData[20]; 
 	
@@ -866,6 +878,8 @@ void saveWeckerConfig(void) {
 	}
 
 	File configFile = SPIFFS.open("/config.json", "w");
+	Serial.println();
+
 	if (configFile) {
 		serializeJson(json, Serial);
 		serializeJson(json, configFile);
@@ -881,37 +895,35 @@ void saveWeckerConfig(void) {
 }
 
 // -----------------------------------------------------------------------------------
-// init time
-// -----------------------------------------------------------------------------------
-bool initTime(void) {
-	bool result = false;
-
-	time(&actualTime);					 // read the current time
-	localtime_r(&actualTime, &timeinfo); // update the structure tm with the current time
-
-	return result;
-}
-
-// -----------------------------------------------------------------------------------
 // read data from web page
 // -----------------------------------------------------------------------------------
 String getJsonDataFromWeb (String _Server, String _Url) {
-	uint16_t u16Tries = 0;
+	String stWeatherString;
+	u32GetWeatherTimeout = 5;		// set timeout to xs
 
-	while ((!wifiClient.connect(_Server, 80)) && (u16Tries < 5)) {
-		u16Tries++;
-		Serial.println(TraceTime() + String("connection error") + u16Tries);
-		delay(100);
+	Serial.println(TraceTime() + String("server ") + _Server);
+	Serial.println(TraceTime() + String("url    ") + _Url);
+
+	while (!wifiClient.connect(_Server, 80)) {
+		delay(500);
+		if (u32GetWeatherTimeout == 0) {goto error;}
 	}
 	
 	Serial.println(TraceTime() + String("connect to ") + Server);
 	wifiClient.println(_Url);
 
 	while (!wifiClient.available()) {
-      delay(100);
+	  	if (u32GetWeatherTimeout == 0) {goto error;}
     }
 
-	return wifiClient.readString();
+	Serial.println(TraceTime() + String("get data"));
+	stWeatherString = wifiClient.readString();
+	Serial.println(TraceTime() + String("data received"));
+	return stWeatherString;
+
+error:
+	Serial.println(TraceTime() + String("**** connection error"));
+	return String(F("error"));
 }
 
 // -----------------------------------------------------------------------------------
@@ -928,10 +940,14 @@ void getActualWeather(void) {
 }
 
 void decodeCurrentWeather(String _WetterDaten) {
-	DynamicJsonDocument jsonWeatherToday(900);
-	
+	if (_WetterDaten == String("error")) {
+		Serial.println("**** error get weather data");
+		return;
+	}
+
 	Serial.println(TraceTime() + "decodeCurrentWeather");
-	
+	DynamicJsonDocument jsonWeatherToday(900);
+		
 	DeserializationError error = deserializeJson(jsonWeatherToday, _WetterDaten);
 
 	if (error) {
@@ -1072,7 +1088,7 @@ void decodeWeatherForcast(String _WetterDaten) {
 			tft.setFreeFont(DefaultFont);
 			tft.drawCentreString(String(cDay[i]), 8 + ((i * 80) + 32), Y_MIDDLE + 8, 1);
 			showWeather(strIconForecast[i].c_str(), 8 + (i * 80), Y_MIDDLE + 30);
-			tft.drawCentreString(String(tempMaxForecast[i], 0) + String("'C"), 8 + ((i * 80) + 32), Y_MIDDLE + 8 + 64 + 24, 1);
+			tft.drawCentreString(String(tempDayForecast[i], 0) + String("'C"), 8 + ((i * 80) + 32), Y_MIDDLE + 8 + 64 + 24, 1);
 			tft.drawCentreString(String(humidityForecast[i], 0) + String("%"), 8 + ((i * 80) + 32), Y_MIDDLE + 8 + 64 + 48, 1);
 		}
 		
