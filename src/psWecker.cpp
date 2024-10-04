@@ -8,7 +8,6 @@
 #include "Arduino.h"
 #include "TFT22-Uhr.h"
 
-
 uint16_t clAlarm::sAlarmNumber = 0;
 clAlarm *clAlarm::pclAlarm[MAX_WECKER];
 

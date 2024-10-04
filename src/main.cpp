@@ -2,7 +2,7 @@
 // Autor : Peter Schneider
 // Datum : 23.01.2021 - change to VSCode and PlatformIO
 //
-// D1_mini with TFT 2.2", 320 x 240, SPI
+// D1_mini / SP8266-12 with TFT 2.2", 320 x 240, SPI
 // ---------------------------------------------------------------------------------------------------
 // VCC        - 3V3
 // GND        - GND
@@ -39,12 +39,12 @@ TFT_eSPI tft = TFT_eSPI();
 const GFXfont *DefaultFont = &Arimo10pt7b;
 const GFXfont *TimeFont = &Arimo_Bold_Time54pt7b;
 
-TFT_eSprite actTimeToShow    = TFT_eSprite(&tft); 	// sprite to show acrual time
+TFT_eSprite actTimeToShow    = TFT_eSprite(&tft); // sprite to show actual time
 TFT_eSprite actDateToShow    = TFT_eSprite(&tft);	// sprite to show actual date
 TFT_eSprite actTimeSecToShow = TFT_eSprite(&tft);	// sprite to show actual time and sec.
 
-#define MY_TZ "CET-1CEST,M3.5.0,M10.5.0/3"			// timezone with summertime and wintertime 
-#define MY_NTP_SERVER "pool.ntp.org" 				// used ntp timeserver
+#define MY_TZ "CET-1CEST,M3.5.0,M10.5.0/3"				// timezone with summertime and wintertime 
+#define MY_NTP_SERVER "pool.ntp.org" 							// used ntp timeserver
 
 time_t actualTime;
 struct tm timeinfo;
@@ -105,7 +105,7 @@ std::array<clAlarm, MAX_WECKER> Wecker = {
 };
 
 menue_t hmMenue[7] = { 
-//   function           menue string             last item
+// function            menue string           last item
 	{runMainMenue,    	" ",                     false},	// 0		
 	{changeAlarmTime, 	"Weckzeit 0 einstellen", false},	// 1			
 	{changeAlarmTime, 	"Weckzeit 1 einstellen", false},	// 2	
@@ -117,8 +117,6 @@ menue_t hmMenue[7] = {
 
 // menue control
 clMenue HMenue(&sw01, hmMenue, showState);
-
-int pwmValue;
 
 // define data from JSON-tree 
 float tempToday = 0.0;
@@ -159,13 +157,12 @@ void setup() {
 	snprintf_P(CityName2, sizeof(CityName2), PSTR(CITY_NAME_2));
 
 	Serial.begin(115200);
-    Serial.println();
+  Serial.println();
 
 	initDisplay();
 	initGpio();
 	initNetwork();
-	initOTA();
-
+	
 	Serial.println();
 	Serial.println(F("--------------------------------------"));
 	Serial.println(F("- TFT2.2 clock spi                   -"));
@@ -177,6 +174,8 @@ void setup() {
 	Serial.println(String(strDummy));
 	Serial.print(String(F("esp core           - ")));
 	Serial.println(ESP.getCoreVersion());
+	Serial.print(String(F("esp core id        - ")));
+	Serial.println(ESP.getChipId());
 	Serial.print(String(F("free heap size     - ")));
 	Serial.print(ESP.getFreeHeap());
 	Serial.println(String(F(" byte")));
@@ -224,23 +223,22 @@ void loop(void) {
 		strTextOld[0] = 0;
 	}
 
-	ArduinoOTA.handle(); 					// OTA Upload via ArduinoIDE
 	wifiServer.handleClient();
 	
 	sw01.runState();
 	sw02.runState();
 
-	led.SwPort(sw01.Status());				// switch LED on with swith 1 - only for test
+	led.SwPort(sw01.Status());	// switch LED on with swith 1 - only for test
 
 	tftBrigthnees();
 
-	time(&actualTime);					 	// get actual time
+	time(&actualTime);					// get actual time
 	localtime_r(&actualTime, &timeinfo); 	// write actual time to timeinfo 
 	
 	clAlarm::Check();						// check alarm time
-	clAlarm::NextAlarm();					// check for next alarm
+	clAlarm::NextAlarm();				// check for next alarm
 
-	showDateAndTime(timeinfo); 				// line one to show date and time 		
+	showDateAndTime(timeinfo); 	// line one to show date and time 		
 	showAlarmTime(false);					
 	HMenue.handle();						// run menue
 	
@@ -665,12 +663,16 @@ void showTime(struct tm _actTimeinfo, bool _bForce) {
 // TFT backligth brightness, controlled by LDR 
 // -------------------------------------------------------------------------------------------------
 void tftBrigthnees(void) {
+	int16_t pwmValue;
+
 	// pwmValue = 4 * measured value - 68 -> linear relationship determined empirically
 	pwmValue = (4 * analogRead(TFT_POTI)) - 68;		// analog value 0 - 1024
 
-	if (pwmValue < 1) {pwmValue = 1;}				// set lower limit to 1
-	if (pwmValue > 1024) {pwmValue = 1024;}			// set upper limit to 1024
-
+	if (pwmValue < 1) {
+		pwmValue = 1;			// set lower limit to 1
+	} else if (pwmValue > PWM_MAX) {
+		pwmValue = PWM_MAX;		// set upper limit to PWM_MAX
+	}	
 	analogWrite(TFT_BACKLIGHT, pwmValue);
 }
 
@@ -721,8 +723,8 @@ void initGpio(void) {
 	led.Init(LED, POLARITY::POS); 		// GPIO LED high active
 	
 	// init an switch on TFT backligth 
-	analogWriteRange(1024);
-	analogWriteFreq(5000);
+	analogWriteRange(PWM_MAX);
+	analogWriteFreq(PWM_FREQ);
 	analogWrite(TFT_BACKLIGHT, 1024); 	// valid value 0 - 1024
 }
 
@@ -730,6 +732,7 @@ void initGpio(void) {
 // init display
 // -----------------------------------------------------------------------------------
 void initDisplay(void) {
+	delay(1000);
 	Serial.println("-- init dsplay");	
 	tft.init();
 	tft.setSwapBytes(true);				// used by push image function
@@ -760,7 +763,7 @@ void initNetwork(void) {
 
  		wifiServer.on("/", handleIndex);
 		wifiServer.on("/values", HTTP_GET, handleValues);
-	  	wifiServer.on("/config", handleConfig);
+	  wifiServer.on("/config", handleConfig);
 		wifiServer.on("/delete", handleDelete);
 		wifiServer.on("/weather", handleWeather);
 		wifiServer.on("/Authentication", handleAuthentication);

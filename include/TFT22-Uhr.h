@@ -26,7 +26,6 @@
 #include "psMenue.h"
 
 #include "html.h"
-#include "ota.h"
 #include "tft.h"
 #include "server.h"
 
@@ -78,6 +77,9 @@
 #define SW_01         12	   	// GPIO 12 - NodeMCO D6
 #define SW_02         15        // GPIO 15 - NodeMCU D8
 #define LED           4         // GPIO  4 - NodeMCU D2
+
+#define PWM_FREQ      1000
+#define PWM_MAX       1023    
 
 // to rotate the screen
 #define ROTATION_NO   0
