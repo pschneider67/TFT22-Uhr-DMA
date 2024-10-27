@@ -13,7 +13,7 @@
 #include <FS.h>
 #include <SPI.h>
 #include <TFT_eSPI.h> 		
-#include <TimeLib.h>
+#include <time.h>
 #include <ArduinoJson.h>
 #include <ArduinoOTA.h> 		// OTA Upload via ArduinoIDE
 #include <psGpio.h>
