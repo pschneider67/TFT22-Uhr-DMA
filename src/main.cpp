@@ -43,11 +43,10 @@ TFT_eSprite actTimeToShow    = TFT_eSprite(&tft); // sprite to show actual time
 TFT_eSprite actDateToShow    = TFT_eSprite(&tft);	// sprite to show actual date
 TFT_eSprite actTimeSecToShow = TFT_eSprite(&tft);	// sprite to show actual time and sec.
 
-#define MY_TZ "CET-1CEST,M3.5.0,M10.5.0/3"				// timezone with summertime and wintertime 
-#define MY_NTP_SERVER "pool.ntp.org" 							// used ntp timeserver
+const char* ntpServer = "pool.ntp.org";   // used ntp server 
+const char* timezone  = "CET-1CEST,M3.5.0,M10.5.0/3";  // string for Europe / Berlin
 
-time_t actualTime;
-struct tm timeinfo;
+tm actualTime;
 
 // use openweather setup
 char ApiKey[34];
@@ -95,13 +94,13 @@ stAlarmTime stWz[MAX_WECKER] = {
 
 // definition of arlam clocks
 std::array<clAlarm, MAX_WECKER> Wecker = {
-    clAlarm(&timeinfo, &buzzer, &sw02, &stWz[0]),
-    clAlarm(&timeinfo, &buzzer, &sw02, &stWz[1]),
-    clAlarm(&timeinfo, &buzzer, &sw02, &stWz[2]),
-    clAlarm(&timeinfo, &buzzer, &sw02, &stWz[3]),
-    clAlarm(&timeinfo, &buzzer, &sw02, &stWz[4]),
-    clAlarm(&timeinfo, &buzzer, &sw02, &stWz[5]),
-    clAlarm(&timeinfo, &buzzer, &sw02, &stWz[6])
+    clAlarm(&actualTime, &buzzer, &sw02, &stWz[0]),
+    clAlarm(&actualTime, &buzzer, &sw02, &stWz[1]),
+    clAlarm(&actualTime, &buzzer, &sw02, &stWz[2]),
+    clAlarm(&actualTime, &buzzer, &sw02, &stWz[3]),
+    clAlarm(&actualTime, &buzzer, &sw02, &stWz[4]),
+    clAlarm(&actualTime, &buzzer, &sw02, &stWz[5]),
+    clAlarm(&actualTime, &buzzer, &sw02, &stWz[6])
 };
 
 menue_t hmMenue[7] = { 
@@ -202,9 +201,10 @@ void setup() {
 	tftBrigthnees();
 	showFrame();
 	
-	configTime(MY_TZ, MY_NTP_SERVER, MY_NTP_SERVER, MY_NTP_SERVER);
-	setSyncInterval(3600);	// resync time after 1 hour 
-
+	// gez actuel time 
+	configTzTime(timezone, ntpServer);
+  Serial.println("-- rtc sync with ntp");
+ 	
 	initIrq();
 	readConfigFile();		// read config data of clock
 	
@@ -215,6 +215,7 @@ void setup() {
 // loop
 // ---------------------------------------------------------------------------------------------------
 void loop(void) {
+	static uint32_t timeRtcSync = millis();
 	char strText[40];
 	static char strTextOld[40] = " ";
 	snprintf_P(strText, sizeof(strText), PSTR("%2.1f'C - %i%s - %ihPa"), tempToday, (int)humidityToday, "%", (int)pressureToday);
@@ -232,15 +233,21 @@ void loop(void) {
 
 	tftBrigthnees();
 
-	time(&actualTime);					// get actual time
-	localtime_r(&actualTime, &timeinfo); 	// write actual time to timeinfo 
-	
-	clAlarm::Check();						// check alarm time
-	clAlarm::NextAlarm();				// check for next alarm
+	// sync rtc after 1h
+	if (millis() - timeRtcSync >= 3600000) {
+		configTzTime(timezone, ntpServer);
+	  Serial.println("-- rtc sync with ntp");
+		timeRtcSync = millis();
+	}  
 
-	showDateAndTime(timeinfo); 	// line one to show date and time 		
+	getLocalTime(&actualTime);
+	
+	clAlarm::Check();							// check alarm time
+	clAlarm::NextAlarm();					// check for next alarm
+
+	showDateAndTime(actualTime);	// line one to show date and time 		
 	showAlarmTime(false);					
-	HMenue.handle();						// run menue
+	HMenue.handle();							// run menue
 	
 	// show clock and weather only at menue number 0
 	switch (HMenue.getAktualMenue()) {
@@ -254,7 +261,7 @@ void loop(void) {
 		case 2:
 		case 5:
 		case 6:
-			showTime(timeinfo, false);
+			showTime(actualTime, false);
 			if (bGetWeather) {
 				getActualWeather();	
 				showWeather(strIconToday.c_str(), X_POS_WEATHER_NOW, Y_POS_WEATHER_NOW);
@@ -433,7 +440,7 @@ bool runWeatherForcast (void) {
 			if (!sw02.Status()) {
 				tft.fillRect(5, Y_MIDDLE + 5, DISP_WIDTH - 10, H_MIDDLE - 10, TFT_BLACK);	// clear screen 
 				showAlarmTime(true);
-				showTime(timeinfo, true);
+				showTime(actualTime, true);
 				bGetWeather = true;														// load weather icon
 				showWeatherIcon(bild_44, X_POS_WEATHER_NOW, Y_POS_WEATHER_NOW);
 				//showWeather(strIconToday.c_str(), X_POS_WEATHER_NOW, Y_POS_WEATHER_NOW);
@@ -1051,10 +1058,10 @@ void decodeWeatherForcast(String _WetterDaten) {
 			strWeatherForecast[i] = jsonWeatherForecast["list"][i]["weather"][0]["description"].as<String>();
 			strIconForecast[i] = jsonWeatherForecast["list"][i]["weather"][0]["icon"].as<String>();
 
-			strcpy(&cDay[i][0], WeekDay[weekday(ForecastTime) - 1]);
+			strcpy(&cDay[i][0], WeekDay[actualTime.tm_wday]);
 
 			Serial.println(F("----------------------------------------------"));
-			snprintf_P(strData, sizeof(strData), PSTR("Datum        : %s %02d.%02d"), WeekDay[weekday(ForecastTime) - 1], day(ForecastTime), month(ForecastTime));
+			snprintf_P(strData, sizeof(strData), PSTR("Datum        : %s %02d.%02d"), WeekDay[actualTime.tm_wday], actualTime.tm_mday, actualTime.tm_mon + 1);
 			Serial.println(strData);
 			Serial.print(F("Stadt        : "));
 			Serial.println(strCityNameForecast);
