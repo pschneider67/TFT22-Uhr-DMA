@@ -1044,7 +1044,7 @@ void decodeWeatherForcast(String _WetterDaten) {
 			u16Count = FORECAST;
 		}
 	
-		for (int i=0; i<u16Count; i++) {
+		for (int i = 0; i < u16Count; i++) {
 			yield();
 			strCityNameForecast  = jsonWeatherForecast["city"]["name"].as<String>();
 			ForecastTime         = jsonWeatherForecast["list"][i]["dt"].as<long int>();
@@ -1056,10 +1056,10 @@ void decodeWeatherForcast(String _WetterDaten) {
 			pressureForecast[i]  = jsonWeatherForecast["list"][i]["pressure"].as<float>();
 
 			strWeatherForecast[i] = jsonWeatherForecast["list"][i]["weather"][0]["description"].as<String>();
-			strIconForecast[i] = jsonWeatherForecast["list"][i]["weather"][0]["icon"].as<String>();
+			strIconForecast[i]    = jsonWeatherForecast["list"][i]["weather"][0]["icon"].as<String>();
 
-			strcpy(&cDay[i][0], WeekDay[actualTime.tm_wday]);
-
+			strcpy(&cDay[i][0], WeekDay[(actualTime.tm_wday + i) % 7]);
+			
 			Serial.println(F("----------------------------------------------"));
 			snprintf_P(strData, sizeof(strData), PSTR("Datum        : %s %02d.%02d"), WeekDay[actualTime.tm_wday], actualTime.tm_mday, actualTime.tm_mon + 1);
 			Serial.println(strData);
