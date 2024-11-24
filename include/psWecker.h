@@ -23,8 +23,8 @@ enum class WEEK_DAY: uint16_t {
 };
 
 struct stAlarmTime {
-    WEEK_DAY  Wochentag;          
-    uint16_t  u16Stunde;
+    WEEK_DAY  WeekDay;          
+    uint16_t  u16Hour;
     uint16_t  u16Minute;  
     bool      bActive; 
 };
@@ -32,16 +32,18 @@ struct stAlarmTime {
 class clAlarm {
     public:
         ~clAlarm(){}
-        clAlarm (tm *_AktuelleZeit, clOut *_buzzer, clIn *_switch, stAlarmTime *_stWz);
+        clAlarm ();
 
-        String getWeckStunde(void);
-        String getWeckMinute(void); 
+        void init(tm *_ActualTime, clOut *_buzzer, clIn *_switch, stAlarmTime *_stWz);
+
+        String getAlarmHour(void);
+        String getAlarmMinute(void); 
         String getTimeString(void);
-        String getWeckTage(void);
+        String getAlarmDay(void);
 
-        uint16_t getWeckStundeValue(void);
-        uint16_t getWeckMinuteValue(void);
-        uint16_t getWeckWeekDayValue(void);
+        uint16_t getAlarmHourValue(void);
+        uint16_t getAlarmMinuteValue(void);
+        uint16_t getAlarmWeekDayValue(void);
 
         void setNewAlarmHour(String); 
         void setNewAlarmMinute(String); 
@@ -57,18 +59,17 @@ class clAlarm {
 
         static bool enableAlarmTime(clIn *_switch);
         static void Check(void);
-        static uint16_t NextAlarm(void);
-
+  
     private:
-        clOut *buzzer;
-        clIn *cSwitch;
+        clOut *buzzer = nullptr;
+        clIn *cSwitch = nullptr;
 
         static clAlarm *pclAlarm[MAX_WECKER];
         static uint16_t sAlarmNumber;
                         
         stAlarmTime AlarmTime;
         
-        struct tm *AktuelleZeit;  
+        struct tm *ActualTime = nullptr;  
 
         uint32_t u32Delay;
         

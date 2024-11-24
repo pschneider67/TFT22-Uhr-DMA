@@ -8,15 +8,25 @@
 #include "Arduino.h"
 #include "TFT22-Uhr.h"
 
-clMenue::clMenue(clIn *_switch, menue_t *_MenueArray, void (*_cbAnzeige)(const char*)) {
+clMenue::clMenue(void) {
+}
+
+void clMenue::init(clIn *_switch, menue_t *_MenueArray, clDisplay* _pDisplay) {
     Sw = _switch;
     MenueArray = _MenueArray;
-    cbAnzeige = _cbAnzeige;
+    
+    if (_pDisplay != nullptr) {
+        pDisplay = _pDisplay;
+        Serial.println("menue init ok");
+    } else {
+        Serial.println("menue init error!!");
+    }
+
     u16MenueCount = 0;
 
     u16RunStatus = 0;
     u16RunStatusOld = 10;
-}
+}    
 
 uint16_t clMenue::getAktualMenue(void) {
     return u16MenueCount;
@@ -37,8 +47,8 @@ bool clMenue::handle(void) {
     switch (u16RunStatus) {
         case 0:     // init
             if (!Sw->Status()) { 
-                u16MenueCount = 0;                                  // actual menue number
-                cbAnzeige(MenueArray[u16MenueCount]._pMenueName);   // show actual menue
+                u16MenueCount = 0;                                          // actual menue number
+                pDisplay->showState(MenueArray[u16MenueCount]._pMenueName); // show actual menue
                 u16RunStatus = 10;
             }
             break;
@@ -54,7 +64,7 @@ bool clMenue::handle(void) {
                 } else {
                     u16MenueCount++;
                 }
-                cbAnzeige(MenueArray[u16MenueCount]._pMenueName);    // show new menu text
+                pDisplay->showState(MenueArray[u16MenueCount]._pMenueName);    // show new menu text
                 u16RunStatus = 30;
             } else {    // function is running
                 u16RunStatus = 50;

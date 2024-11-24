@@ -2,7 +2,7 @@
 // Autor : Peter Schneider
 // Datum : 23.01.2021 - change to VSCode and PlatformIO
 //
-// D1_mini / SP8266-12 with TFT 2.2", 320 x 240, SPI
+// D1_mini / ESP8266-12 with TFT 2.2", 320 x 240, SPI
 // ---------------------------------------------------------------------------------------------------
 // VCC        - 3V3
 // GND        - GND
@@ -34,14 +34,7 @@
 // ---------------------------------------------------------------------------------------------------
 #include "config.h"   
 // ---------------------------------------------------------------------------------------------------
-TFT_eSPI tft = TFT_eSPI();
-
-const GFXfont *DefaultFont = &Arimo10pt7b;
-const GFXfont *TimeFont = &Arimo_Bold_Time54pt7b;
-
-TFT_eSprite actTimeToShow    = TFT_eSprite(&tft); // sprite to show actual time
-TFT_eSprite actDateToShow    = TFT_eSprite(&tft);	// sprite to show actual date
-TFT_eSprite actTimeSecToShow = TFT_eSprite(&tft);	// sprite to show actual time and sec.
+clDisplay* pTft = nullptr;  
 
 const char* ntpServer = "pool.ntp.org";   // used ntp server 
 const char* timezone  = "CET-1CEST,M3.5.0,M10.5.0/3";  // string for Europe / Berlin
@@ -58,25 +51,26 @@ char strIcon[6];
 
 const char WeekDay[7][5] PROGMEM = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr. ", "Sa. "};
 
-WiFiManager wifiManager;
-WiFiClient wifiClient;
-ESP8266WebServer wifiServer(80);
+WiFiManager*     	pWifiManager = nullptr;
+WiFiClient*      	pWifiClient = nullptr;
+ESP8266WebServer*	pWifiServer = nullptr;
 
 // Set the username and password for the webserver
 const char* http_username = "admin";
 const char* http_password = "13579";
-const char* cDnsName = "ESPWecker01";
+const char* cDnsName = "ESP_Wecker";
 
-clOut led;
-clOut buzzer;
+// definition of GPIO outputs
+clOut* pLed = nullptr;
+clOut* pBuzzer = nullptr;
 
 // definition of switch 1
 stInput ParamSw01 = {SW_01, CHANGE, 40, 2000, irqSw01, POLARITY::POS, false};
-clIn sw01; 			
+clIn* pSw01 = nullptr; 			
 
 // definition of switch 2
 stInput ParamSw02 = {SW_02, CHANGE, 40, 2000, irqSw02, POLARITY::POS, false};
-clIn sw02;
+clIn* pSw02 = nullptr;
 
 char cVersion[] PROGMEM = "03.01";
 char cDatum[]   PROGMEM = __DATE__;
@@ -93,18 +87,18 @@ stAlarmTime stWz[MAX_WECKER] = {
 };
 
 // definition of arlam clocks
-std::array<clAlarm, MAX_WECKER> Wecker = {
-    clAlarm(&actualTime, &buzzer, &sw02, &stWz[0]),
-    clAlarm(&actualTime, &buzzer, &sw02, &stWz[1]),
-    clAlarm(&actualTime, &buzzer, &sw02, &stWz[2]),
-    clAlarm(&actualTime, &buzzer, &sw02, &stWz[3]),
-    clAlarm(&actualTime, &buzzer, &sw02, &stWz[4]),
-    clAlarm(&actualTime, &buzzer, &sw02, &stWz[5]),
-    clAlarm(&actualTime, &buzzer, &sw02, &stWz[6])
+std::array<clAlarm*, MAX_WECKER> Wecker = {
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr,
+    nullptr
 };
 
 menue_t hmMenue[7] = { 
-// function            menue string           last item
+// function           menue string             last item
 	{runMainMenue,    	" ",                     false},	// 0		
 	{changeAlarmTime, 	"Weckzeit 0 einstellen", false},	// 1			
 	{changeAlarmTime, 	"Weckzeit 1 einstellen", false},	// 2	
@@ -115,7 +109,7 @@ menue_t hmMenue[7] = {
 };
 
 // menue control
-clMenue HMenue(&sw01, hmMenue, showState);
+clMenue* pHMenue = nullptr;
 
 // define data from JSON-tree 
 float tempToday = 0.0;
@@ -151,20 +145,39 @@ char strDummy[30];
 // setup
 // ---------------------------------------------------------------------------------------------------
 void setup() {
+	Serial.begin(115200);
+  Serial.println();
+
+	// create classes
+	pWifiManager = new WiFiManager;
+	pWifiClient  = new WiFiClient;
+	pWifiServer  = new ESP8266WebServer(80);
+
+	pLed    = new clOut;
+	pBuzzer = new clOut;
+	pTft    = new clDisplay;
+	pHMenue = new clMenue;
+	pSw01   = new clIn;
+	pSw02   = new clIn;
+
+	initGpio();
+	initDisplay();
+	initNetwork();
+
+	for (int i = 0; i < MAX_WECKER; i++) {
+		Wecker[i] = new clAlarm;
+		Wecker[i]->init(&actualTime, pBuzzer, pSw02, &stWz[i]);
+ 	}
+
+	pHMenue->init(pSw01, hmMenue, pTft);
+	
 	snprintf_P(ApiKey, sizeof(ApiKey), PSTR(API_KEY));
 	snprintf_P(CityName1, sizeof(CityName1), PSTR(CITY_NAME_1));
 	snprintf_P(CityName2, sizeof(CityName2), PSTR(CITY_NAME_2));
 
-	Serial.begin(115200);
-  Serial.println();
-
-	initDisplay();
-	initGpio();
-	initNetwork();
-	
 	Serial.println();
 	Serial.println(F("--------------------------------------"));
-	Serial.println(F("- TFT2.2 clock spi                   -"));
+	Serial.println(F("- ESP8266 clock                      -"));
 	Serial.println(F("--------------------------------------"));
 
 	snprintf_P(strDummy, sizeof(strDummy), PSTR("version            - %s"), cVersion);
@@ -198,78 +211,93 @@ void setup() {
 		Serial.println(".. FS mounted error");
 	}
 
+	// init screen
 	tftBrigthnees();
-	showFrame();
+	pTft->showFrame();
 	
-	// gez actuel time 
+	// get actuel time 
 	configTzTime(timezone, ntpServer);
-  Serial.println("-- rtc sync with ntp");
+	getLocalTime(&actualTime);
+  pTft->showTime(actualTime, true);
+	Serial.println("-- rtc sync with ntp");
  	
 	initIrq();
 	readConfigFile();		// read config data of clock
 	
-	showWeatherIcon(bild_44, X_POS_WEATHER_NOW, Y_POS_WEATHER_NOW);
+	pTft->showWeatherIcon(bild_44, pTft->getXPosWeatherNow(), pTft->getYPosWeatherNow());
+	bGetWeather = true;
 }
 
 // ---------------------------------------------------------------------------------------------------
 // loop
 // ---------------------------------------------------------------------------------------------------
 void loop(void) {
-	static uint32_t timeRtcSync = millis();
+	static uint16_t u16StateRtcSync = 0;
 	char strText[40];
 	static char strTextOld[40] = " ";
 	snprintf_P(strText, sizeof(strText), PSTR("%2.1f'C - %i%s - %ihPa"), tempToday, (int)humidityToday, "%", (int)pressureToday);
 
-	if (HMenue.getAktualMenue() != 0) {
+	if (pHMenue->getAktualMenue() != 0) {
 		strTextOld[0] = 0;
 	}
 
-	wifiServer.handleClient();
+	pWifiServer->handleClient();
 	
-	sw01.runState();
-	sw02.runState();
+	pSw01->runState();
+	pSw02->runState();
 
-	led.SwPort(sw01.Status());	// switch LED on with swith 1 - only for test
+	pLed->SwPort(pSw01->Status());	// switch LED on with swith 1 - only for test
 
 	tftBrigthnees();
 
-	// sync rtc after 1h
-	if (millis() - timeRtcSync >= 3600000) {
-		configTzTime(timezone, ntpServer);
-	  Serial.println("-- rtc sync with ntp");
-		timeRtcSync = millis();
-	}  
+	// sync rtc at 2:00
+	switch (u16StateRtcSync) {
+		case 0:
+			if (actualTime.tm_hour == 2 && actualTime.tm_min == 0 && actualTime.tm_sec == 0) {
+				configTzTime(timezone, ntpServer);
+				Serial.println("-- rtc sync with ntp");
+				u16StateRtcSync = 10;
+			}
+			break;
+		case 10:
+			if (actualTime.tm_hour == 3) {
+				u16StateRtcSync = 0;
+			}
+			break;
+		default:
+			u16StateRtcSync = 0;
+			break;
+	}
 
 	getLocalTime(&actualTime);
-	
 	clAlarm::Check();							// check alarm time
-	clAlarm::NextAlarm();					// check for next alarm
-
-	showDateAndTime(actualTime);	// line one to show date and time 		
-	showAlarmTime(false);					
-	HMenue.handle();							// run menue
 	
-	// show clock and weather only at menue number 0
-	switch (HMenue.getAktualMenue()) {
-		case 0:
+	pTft->showDateAndTime(actualTime, (const char*)WeekDay[actualTime.tm_wday]);	// line one to show date and time 		
+	showAlarmTime(false);					
+	pHMenue->handle();						// run menue
+	
+	// show clock and weather (bottom status line) only at menue number 0
+	switch (pHMenue->getAktualMenue()) {
+		case 0:		// runMainMenue
 			if (strcmp(strTextOld, strText) != 0) { 	// check for new status text
 				Serial.println(F("show status menue 0"));
 				strcpy(strTextOld, strText);
-				showState(strText);
+				pTft->showState(strText);
 			}
-		case 1:
-		case 2:
-		case 5:
-		case 6:
-			showTime(actualTime, false);
+		case 1:		// changeAlarmTime
+		case 2:		// changeAlarmTime
+		case 5:		// runState
+		case 6:		// runDeleteFile
+			pTft->showTime(actualTime, false);
+			
 			if (bGetWeather) {
 				getActualWeather();	
-				showWeather(strIconToday.c_str(), X_POS_WEATHER_NOW, Y_POS_WEATHER_NOW);
+				pTft->showWeather(strIconToday.c_str(), pTft->getXPosWeatherNow(), pTft->getYPosWeatherNow());
 				bGetWeather = false;
 			}	
 			break;
-		case 3:
-		case 4:
+		case 3:		// runWeatherForcast
+		case 4:		// runWeatherForcast
 			break;
 	}		   	
 }
@@ -278,7 +306,7 @@ void loop(void) {
 // menue functions
 // ---------------------------------------------------------------------------------------------------
 bool runMainMenue(void) {
-	return clAlarm::enableAlarmTime(&sw02);
+	return clAlarm::enableAlarmTime(pSw02);
 } 
 
 bool changeAlarmTime(void) {
@@ -289,7 +317,7 @@ bool changeAlarmTime(void) {
 
 	uint16_t _u16Nr;
 	
-	switch (HMenue.getAktualMenue()) {
+	switch (pHMenue->getAktualMenue()) {
 		case 1: _u16Nr = 0; break;
 		case 2: _u16Nr = 1; break;
 		default: _u16Nr = 0; break;
@@ -302,19 +330,19 @@ bool changeAlarmTime(void) {
 
 	switch (u16Status) {
 		case 0:		// warte bis Tatse losgelassen wurde
-			if (!sw02.Status()) {	
+			if (!pSw02->Status()) {	
 				u16Status = 5;
 			}
 			break;
 		case 5:		// warte auf Tastendruck
 			bResult = true;	
-			if (sw02.Status()) {	
+			if (pSw02->Status()) {	
 				u16Status = 10;
 			}
 			break;
 		case 10:
 			if (_u16Nr < MAX_WECKER) {	
-				if (Wecker[_u16Nr].setNewAlarmTime()) {
+				if (Wecker[_u16Nr]->setNewAlarmTime()) {
 					saveWeckerConfig();
 					bResult = true;
 					u16Status = 0;
@@ -336,7 +364,7 @@ bool runState(void) {
 	switch (u16Status) {
 		case 0:
 			bResult = true;
-			if (sw02.Status()) {
+			if (pSw02->Status()) {
 				u16Status = 10;
 			}
 			break;
@@ -351,7 +379,7 @@ bool runState(void) {
 			}
 			break;
 		case 30:
-			showVersion();	
+			pTft->showVersion();	
 			u32Timer = millis();
 			u16Status = 40;
 			break;
@@ -377,16 +405,16 @@ bool runDeleteFile(void) {
 	switch (u16Status) {
 		case 0:
 			bResult = true;
-			if (sw02.Status()) {
+			if (pSw02->Status()) {
 				Serial.printf("delete file: %s\r\n", cFile);
 				u16Status = 10;
 			}
 			break;
 		case 10:
 			if (SPIFFS.remove(cFile)) {
-				showState("config. deleted");
+				pTft->showState("config. deleted");
 			} else {
-				showState("delete error");
+				pTft->showState("delete error");
 			}
 			u32Timer = millis();
 			u16Status = 20;
@@ -413,9 +441,9 @@ bool runWeatherForcast (void) {
 	switch (u16Status) {
 		case 0:
 			bResult = true;
-			if (sw02.Status()) {
+			if (pSw02->Status()) {
 				Serial.println("get weather forcast");
-				showState("lade Wetterdaten");
+				pTft->showState("lade Wetterdaten");
 				u16Status = 10;
 			}
 			break;
@@ -424,26 +452,25 @@ bool runWeatherForcast (void) {
 			u16Status = 20;
 			break;
 		case 20:	
-			if (!sw02.Status()) {
+			if (!pSw02->Status()) {
 				u32Timer = millis();
 				u16Status = 30;
 			}
 			break;
 		case 30:
-			if (sw02.Status()) {
+			if (pSw02->Status()) {
 				u16Status = 40;
 			} else if (millis() > (u32Timer + (15 * 60000))) {
 				u16Status = 40;
 			}
 			break;
 		case 40:
-			if (!sw02.Status()) {
-				tft.fillRect(5, Y_MIDDLE + 5, DISP_WIDTH - 10, H_MIDDLE - 10, TFT_BLACK);	// clear screen 
+			if (!pSw02->Status()) {
+				pTft->clearMiddleArea(); 
 				showAlarmTime(true);
-				showTime(actualTime, true);
+				pTft->showTime(actualTime, true);
 				bGetWeather = true;														// load weather icon
-				showWeatherIcon(bild_44, X_POS_WEATHER_NOW, Y_POS_WEATHER_NOW);
-				//showWeather(strIconToday.c_str(), X_POS_WEATHER_NOW, Y_POS_WEATHER_NOW);
+				pTft->showWeatherIcon(bild_44, pTft->getXPosWeatherNow(), pTft->getYPosWeatherNow());
 				u16Status = 0;
 			}
 			break;
@@ -455,65 +482,12 @@ bool runWeatherForcast (void) {
 	return bResult;
 }
 
-void showDateAndTime(struct tm _actTimeinfo) {
-	uint16_t spriteHigth = 18;
-	
-	// date
-	uint16_t spriteWidth1 = (DISP_WIDTH / 2) - 20;
-	uint16_t spriteXPos1  = H_SPACE;	
-	uint16_t spriteYPos1  = 9;
-
-	// time
-	uint16_t spriteWidth2 = (DISP_WIDTH / 2) - 75;
-	uint16_t spriteXPos2  = (DISP_WIDTH / 2) + 75 - H_SPACE;	
-	uint16_t spriteYPos2  = 9;
-
-	char str[20];
-
-	static String strTimeOld = " ";
-	String strTime;
-	
-	static String strDateOld = " ";
-	String strDate;
-		
-	snprintf_P(str, sizeof(str), PSTR("%02u:%02u:%02u"), _actTimeinfo.tm_hour, _actTimeinfo.tm_min, _actTimeinfo.tm_sec);
-	strTime = String(str);
-		
-	// write actual time if time changed
-	if (strTimeOld != strTime) {
-		actTimeSecToShow.setColorDepth(8);
-		actTimeSecToShow.createSprite(spriteWidth2, spriteHigth);
-		actTimeSecToShow.fillSprite(TFT_BLACK);
-		
-		actTimeSecToShow.setFreeFont(DefaultFont);
-		actTimeSecToShow.setTextSize(1);	
-		actTimeSecToShow.setTextColor(TFT_YELLOW);
-		actTimeSecToShow.drawRightString(strTime, spriteWidth2, (spriteHigth / 2) - 10, 1);
-		
-		actTimeSecToShow.pushSprite(spriteXPos2, spriteYPos2);	// show sprite at screen
-		strTimeOld == strTime;
-	}
-
-	snprintf_P(str, sizeof(str), PSTR("%s"), WeekDay[_actTimeinfo.tm_wday]);
-	
-	strDate = String(str);
-	snprintf_P(str, sizeof(str), PSTR("%02u.%02u.%4u"), _actTimeinfo.tm_mday, _actTimeinfo.tm_mon + 1, 1900 + _actTimeinfo.tm_year);
-	strDate += String(str);
-
-	// write actual date if time changed
-	if (strDateOld != strDate) {
-		actDateToShow.setColorDepth(8);
-		actDateToShow.createSprite(spriteWidth1, spriteHigth);
-		actDateToShow.fillSprite(TFT_BLACK);
-	
-		actDateToShow.setFreeFont(DefaultFont);
-		actDateToShow.setTextSize(1);	
-		actDateToShow.setTextColor(TFT_YELLOW);
-	
-		actDateToShow.drawString(strDate, 0, (spriteHigth / 2) - 10, 1);
-		actDateToShow.pushSprite(spriteXPos1, spriteYPos1);
-		strDateOld == strDate;
-	}
+void showLabel(void) {
+	char strText[40];
+	char strIp[16];
+	WiFi.localIP().toString().toCharArray(strIp, 16);
+	snprintf_P(strText, sizeof(strText), PSTR("%s - %s"), WiFi.SSID().c_str(), strIp);
+	pTft->showState(strText);
 }
 
 void showAlarmTime(bool _bForce) {
@@ -524,20 +498,20 @@ void showAlarmTime(bool _bForce) {
 	String strMinute;
 	String strDay;
 
-	uint16_t xOffset = 64 + (2 * H_SPACE);
+	uint16_t xOffset = 64 + (2 * pTft->getHSpace());
 	uint16_t yFontHeight = 21;
 	uint16_t xFontWidth = 10;
 
-	tft.setFreeFont(DefaultFont);
-	tft.setTextSize(1);	
-	tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+	pTft->setFreeFont(pTft->DefaultFont);
+	pTft->setTextSize(1);	
+	pTft->setTextColor(TFT_YELLOW, TFT_BLACK);
 
 	for (int i = 0; i < 2; i++) {
 		uint16_t y = 141 + ((i * yFontHeight) + 2); 
 	
 		//   0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
 		//   W 0 :   *   0 5 : 4 5   :        M  o     -  F  r
-		strAlarmTime[i] = Wecker[i].getTimeString(); 		
+		strAlarmTime[i] = Wecker[i]->getTimeString(); 		
 		strName   = strAlarmTime[i].substring(0,6);	 			// "W0: * "		
 		strHour   = strAlarmTime[i].substring(6,8);				// "05"
 		strMinute = strAlarmTime[i].substring(9,11);			// "45"
@@ -546,27 +520,27 @@ void showAlarmTime(bool _bForce) {
 		if ((oldString[i] != strAlarmTime[i]) || _bForce) {
 			Serial.println(TraceTime() + strAlarmTime[i]);
 
-			tft.drawString(strName, xOffset + 10, y);						// name
+			pTft->drawString(strName, xOffset + 10, y);						// name
 			if (strName.substring(4,5) == " ") {
-				tft.fillRect(xOffset + (xFontWidth * 5), y, xFontWidth, yFontHeight, TFT_BLACK);
+				pTft->fillRect(xOffset + (xFontWidth * 5), y, xFontWidth, yFontHeight, TFT_BLACK);
 			}
 			
 			if (strHour.substring(0,1) != " ") {
-				tft.drawString(strHour, xOffset + (xFontWidth * 7), y);		// hour
+				pTft->drawString(strHour, xOffset + (xFontWidth * 7), y);		// hour
 			} else {
-				tft.fillRect(xOffset + (xFontWidth * 7), y, (xFontWidth * 3), yFontHeight, TFT_BLACK);
+				pTft->fillRect(xOffset + (xFontWidth * 7), y, (xFontWidth * 3), yFontHeight, TFT_BLACK);
 			}
-			tft.drawString(":", xOffset + 98, y);				// :
+			pTft->drawString(":", xOffset + 98, y);				// :
 			if (strMinute.substring(0,1) != " ") {			
-				tft.drawString(strMinute, xOffset + (xFontWidth * 11), y);	// minute
+				pTft->drawString(strMinute, xOffset + (xFontWidth * 11), y);	// minute
 			} else {
-				tft.fillRect(xOffset + (xFontWidth * 11), y, (xFontWidth * 3), yFontHeight, TFT_BLACK);
+				pTft->fillRect(xOffset + (xFontWidth * 11), y, (xFontWidth * 3), yFontHeight, TFT_BLACK);
 			}
-			tft.drawString(" - ", xOffset + 138, y);			// -
+			pTft->drawString(" - ", xOffset + 138, y);			// -
 			if (strDay.substring(0,1) != " ") {
-				tft.drawString(strDay, xOffset + (xFontWidth * 16), y);		// day
+				pTft->drawString(strDay, xOffset + (xFontWidth * 16), y);		// day
 			} else {
-				tft.fillRect(xOffset + (xFontWidth * 16), y, (xFontWidth * 7), yFontHeight, TFT_BLACK);
+				pTft->fillRect(xOffset + (xFontWidth * 16), y, (xFontWidth * 7), yFontHeight, TFT_BLACK);
 			}
 			
 			oldString[i] = strAlarmTime[i];
@@ -574,114 +548,19 @@ void showAlarmTime(bool _bForce) {
 	}
 }
 
-// -----------------------------------------------------------------------------------------------------
-// show time at the middel of the display
-// -----------------------------------------------------------------------------------------------------
-// The display is only updated when the seconds are at 0, so a new minute starts. 
-// First thing to do is completely delete the old time string by writing the string 
-// with set the text color to the background color.
-// Then we can write the new time string to the sprite object.
-// At last the sprite object is shown at the display.
-// -----------------------------------------------------------------------------------------------------
-void showTime(struct tm _actTimeinfo, bool _bForce) {
-	static uint16_t u16State = 0;
-	static tm tmTimeOld;
-	static bool weatherRequest = false;
- 
-	uint16_t spriteWidth = DISP_WIDTH - (4 * H_SPACE);
-	uint16_t spriteHigth = 81;
-	uint16_t spriteYPos  = Y_MIDDLE + (H_SPACE / 2);
-	uint16_t spriteXPos  = DISP_WIDTH - spriteWidth - (2 * H_SPACE);	
-
-	char str[8];
-	String strZeit;
-	String strInfo = "wait for weather data";
-
-	switch (u16State)  	{
-		case 0: 	// init time if ntp call is ready for the first time
-			actTimeToShow.setColorDepth(8);
-			actTimeToShow.createSprite(spriteWidth, spriteHigth);
-			actTimeToShow.setFreeFont(DefaultFont);
-			actTimeToShow.setTextSize(1);		
-			actTimeToShow.fillSprite(TFT_BLACK);
-
-			actTimeToShow.setTextColor(TFT_YELLOW);
-			actTimeToShow.drawCentreString(strInfo, spriteWidth / 2, (spriteHigth / 2), 1);
-			actTimeToShow.pushSprite(spriteXPos, spriteYPos);			// show sprite at screen
-			u16State = 5;
-			break;
-		case 5: 	// check for a valide year > 2000 (1900 + 100) 
-			if (_actTimeinfo.tm_year > 100) {
-				actTimeToShow.fillSprite(TFT_BLACK);
-				weatherRequest = true;
-				u16State = 20;
-			} else {
-				u16State = 6;
-			}
-			break;
-		case 6: 	// wait 100ms
-			delay(100);
-			u16State = 5;
-			break;
-		case 10: 	// wait for a new minute (seccond == 0)
-			if ((_actTimeinfo.tm_sec == 0) || _bForce || (tmTimeOld.tm_min != _actTimeinfo.tm_min)) {
-				u16State = 20;
-			}
-			break;
-		case 20: 	// show new time string
-			// build new time string
-			snprintf_P(str, sizeof(str), PSTR("%u:%02u"), _actTimeinfo.tm_hour, _actTimeinfo.tm_min);
-			strZeit = String(str);
-			
-			actTimeToShow.setTextSize(1);	
-			actTimeToShow.setFreeFont(TimeFont);
-			
-			// clear actual time
-			actTimeToShow.fillSprite(TFT_BLACK);
-			
-			// write new time
-			actTimeToShow.setTextColor(TFT_YELLOW);
-			actTimeToShow.drawCentreString(strZeit, spriteWidth / 2, 0, 1);
-			
-			// show sprite at screen
-			actTimeToShow.pushSprite(spriteXPos, spriteYPos);
-
-			tmTimeOld = _actTimeinfo;
-
-			if (weatherRequest) {
-				bGetWeather = true;
-				weatherRequest = false;
-			}
-			
-			u16State = 30;
-			break;
-		case 30: 	// wait for seccond != 0
-			if (_actTimeinfo.tm_sec != 0) {
-				u16State = 10;
-			}
-			break;
-		default:
-			u16State = 0;
-			break;
-	}
-}
-
 // -------------------------------------------------------------------------------------------------
 // TFT backligth brightness, controlled by LDR 
 // -------------------------------------------------------------------------------------------------
 void tftBrigthnees(void) {
-	int16_t pwmValue;
-
-	// pwmValue = 4 * measured value - 68 -> linear relationship determined empirically
-	pwmValue = (4 * analogRead(TFT_POTI)) - 68;		// analog value 0 - 1024
-
-	if (pwmValue < 1) {
-		pwmValue = 1;			// set lower limit to 1
-	} else if (pwmValue > PWM_MAX) {
-		pwmValue = PWM_MAX;		// set upper limit to PWM_MAX
-	}	
+	uint16_t pwmValue;
+	uint16_t u16AnalogValue = analogRead(TFT_POTI);
+	
+	if (u16AnalogValue < 20) {
+		u16AnalogValue = 20;
+	}
+	pwmValue = map(u16AnalogValue, 20, 900, 1, PWM_MAX);
 	analogWrite(TFT_BACKLIGHT, pwmValue);
-}
+}	
 
 // -----------------------------------------------------------------------------------
 // interrupt function - timer 0 - 1s
@@ -696,10 +575,10 @@ IRAM_ATTR void irqTimer0(void) {
 		bGetWeather = true;
 	}
 
-	// reset authentication after 3 min.
+	// reset authentication 
 	if (getAuthentication()) {
-		if (++authenticationTimer >= 60 * 3) {
-			//clearAuthentication();
+		if (++authenticationTimer >= 60 * 5) {
+			clearAuthentication();
 		}
 	} else {
 		authenticationTimer = 0;
@@ -715,19 +594,15 @@ IRAM_ATTR void irqTimer0(void) {
 // -----------------------------------------------------------------------------------
 void initGpio(void) {
 	Serial.println("-- init gpio");
-	sw01.Init(ParamSw01);
-	sw02.Init(ParamSw02);
+	pSw01->Init(ParamSw01);
+	pSw02->Init(ParamSw02);
 
 	// buzzer
-	buzzer.Init(BUZZER, POLARITY::NEG); // GIPO BUZZER low active
-	/*
-	buzzer.On();
-	delay(10);
-	*/
-	buzzer.Off();
+	pBuzzer->Init(BUZZER, POLARITY::NEG); // GIPO BUZZER low active
+	pBuzzer->Off();
 
 	// LED
-	led.Init(LED, POLARITY::POS); 		// GPIO LED high active
+	pLed->Init(LED, POLARITY::POS); 			// GPIO LED high active
 	
 	// init an switch on TFT backligth 
 	analogWriteRange(PWM_MAX);
@@ -741,58 +616,63 @@ void initGpio(void) {
 void initDisplay(void) {
 	delay(1000);
 	Serial.println("-- init dsplay");	
-	tft.init();
-	tft.setSwapBytes(true);				// used by push image function
-	tft.setRotation(ROTATION_90);
-	tft.fillScreen(TFT_BLACK);
-	tft.setTextColor(TFT_WHITE, TFT_BLACK);
+	pTft->init();
+	pTft->setSwapBytes(true);				// used by push image function
+	pTft->setRotation(ROTATION_90);
+	pTft->fillScreen(TFT_BLACK);
+	pTft->setTextColor(TFT_WHITE, TFT_BLACK);
 }
 
 // -----------------------------------------------------------------------------------
 // init network
 // -----------------------------------------------------------------------------------
 void initNetwork(void) {
-	wifiManager.setAPCallback(wifiCallback);
-	wifiManager.setSaveConfigCallback(saveConfigCallback);
+	pWifiManager->setAPCallback(wifiCallback);
+	pWifiManager->setSaveConfigCallback(wifiCallbackSaveConfig);
 
-	tft.fillScreen(TFT_BLACK);
-	tft.setCursor(0, 30);
-	tft.setFreeFont(DefaultFont);
-	tft.setTextSize(1);	
-	tft.drawString(".. start WLan", 10, 10);
+	pTft->clearDisplay();
+	pTft->setCursor(0, 30);
+	pTft->setTextSize(1);	
+	pTft->drawString(".. start WLan", 10, 10);
 
-	if (wifiManager.autoConnect("ESP_TFT_UHR")) {
-		tft.drawString(".. WLan connected", 10, 40);
+	if (pWifiManager->autoConnect("ESP_TFT_UHR")) {
+		pTft->drawString(".. WLan connected", 10, 40);
 		String strText = String(".. ") + WiFi.SSID() + String(" - ") + WiFi.localIP().toString();
-		tft.drawString(strText, 10, 70);
+		pTft->drawString(strText, 10, 70);
 
 		MDNS.begin(cDnsName);
 
- 		wifiServer.on("/", handleIndex);
-		wifiServer.on("/values", HTTP_GET, handleValues);
-	  wifiServer.on("/config", handleConfig);
-		wifiServer.on("/delete", handleDelete);
-		wifiServer.on("/weather", handleWeather);
-		wifiServer.on("/Authentication", handleAuthentication);
-		wifiServer.on("/logout", handleLogout);
-		wifiServer.begin();
+ 		pWifiServer->on("/", handleIndex);
+		pWifiServer->on("/values", HTTP_GET, handleValues);
+	  pWifiServer->on("/config", handleConfig);
+		pWifiServer->on("/delete", handleDelete);
+		pWifiServer->on("/weather", handleWeather);
+		pWifiServer->on("/Authentication", handleAuthentication);
+		pWifiServer->on("/logout", handleLogout);
+		pWifiServer->begin();
+		pTft->drawString(".. server online", 10, 100);
 		Serial.println(".. server online");
 		delay(4000);
 	} else {
-		tft.drawString(".. WLan error !!", 10, 40);
-		tft.drawString(".. ESP Reset !!", 10, 70);
-		delay(2000);
+		pTft->drawString(".. WLan error !!", 10, 40);
+		pTft->drawString(".. ESP Reset !!", 10, 70);
+		delay(3000);
 		while (true) {;}
 	}
 }
 
-void wifiCallback(WiFiManager *_myWiFiManager) {
-	tft.fillScreen(TFT_BLACK);
-	tft.println();
-	tft.println(".. Konfig. Mode aktiv");
-	tft.print(".. ");
-	tft.println(WiFi.softAPIP());
-	tft.println(String(".. ") + _myWiFiManager->getConfigPortalSSID());
+void wifiCallback(WiFiManager *_pWiFiManager) {
+	pTft->fillScreen(TFT_BLACK);
+	pTft->println();
+	pTft->println(".. Konfig. Mode aktiv");
+	pTft->print(".. ");
+	pTft->println(WiFi.softAPIP());
+	pTft->println(String(".. ") + _pWiFiManager->getConfigPortalSSID());
+}
+
+// callback notifying us of the need to save config
+void wifiCallbackSaveConfig () {
+	Serial.println(F("wifi data saved"));
 }
 
 // -----------------------------------------------------------------------------------
@@ -804,7 +684,7 @@ void readConfigFile(void) {
 		Serial.println(".. open config file");
 		File configFile = SPIFFS.open("/config.json", "r");
 		if (configFile) {
-			Serial.println(".. config file readed");
+			Serial.println(".. config file read");
 			size_t size = configFile.size();
 			
 			// allocate a buffer to store contents of the file.
@@ -827,22 +707,27 @@ void readConfigFile(void) {
 				int iMaxWecker = Data.toInt();
 				
 				for (int i = 0; i < iMaxWecker; i++) {
-					snprintf_P(strData, sizeof(strData), PSTR("WeckerStunden_%i") , i);
-					Wecker[i].setNewAlarmHour(json[strData]);
-											
-					snprintf_P(strData, sizeof(strData), PSTR("WeckerMinuten_%i") , i);
-					Wecker[i].setNewAlarmMinute(json[strData]);
-					
-					snprintf_P(strData, sizeof(strData), PSTR("WeckerTage_%i") , i);
-					Wecker[i].setNewWeekDay(json[strData]);
-					
-					snprintf_P(strData, sizeof(strData), PSTR("WeckerAktiv_%i") , i);
-					if (json[strData] == String('*')) {
-						Serial.println((String)".. Wecker " + String(i) + (String)" ist aktiv");
-						Wecker[i].Start();
-					} else {
-						Wecker[i].Stop();
-					}	
+					if (Wecker[i] != nullptr) {
+						snprintf_P(strData, sizeof(strData), PSTR("WeckerStunden_%i") , i);
+						Wecker[i]->setNewAlarmHour(json[strData]);
+												
+						snprintf_P(strData, sizeof(strData), PSTR("WeckerMinuten_%i") , i);
+						Wecker[i]->setNewAlarmMinute(json[strData]);
+						
+						snprintf_P(strData, sizeof(strData), PSTR("WeckerTage_%i") , i);
+						Wecker[i]->setNewWeekDay(json[strData]);
+						
+						snprintf_P(strData, sizeof(strData), PSTR("WeckerAktiv_%i") , i);
+						if (json[strData] == String('*')) {
+							Serial.println((String)".. Wecker " + String(i) + (String)" ist aktiv");
+							Wecker[i]->Start();
+						} else {
+							Wecker[i]->Stop();
+						}
+					}	else {
+							Serial.println((String)".. fail to read config data for alarm " + String(i));
+							return;
+					}
 				}					
 				Serial.print(F("memory used : "));
 				Serial.println(json.memoryUsage());
@@ -856,11 +741,6 @@ void readConfigFile(void) {
   	}
 }
 
-// callback notifying us of the need to save config
-void saveConfigCallback () {
-	Serial.println(F("wifi data saved"));
-}
-
 void saveWeckerConfig(void) {
 	Serial.println(F("alarm clock configuration saved"));
 	DynamicJsonDocument json(1024);
@@ -871,16 +751,16 @@ void saveWeckerConfig(void) {
 
 	for(int i = 0; i < MAX_WECKER; i++) {
 		snprintf_P(strData, sizeof(strData), PSTR("WeckerStunden_%i") , i);
-		json[strData] = Wecker[i].getWeckStunde(); 
+		json[strData] = Wecker[i]->getAlarmHour(); 
 		
 		snprintf_P(strData, sizeof(strData), PSTR("WeckerMinuten_%i") , i);
-		json[strData] = Wecker[i].getWeckMinute();
+		json[strData] = Wecker[i]->getAlarmMinute();
 		
 		snprintf_P(strData, sizeof(strData), PSTR("WeckerTage_%i") , i);
-		json[strData] = Wecker[i].getWeckTage(); 
+		json[strData] = Wecker[i]->getAlarmDay(); 
 		
 		snprintf_P(strData, sizeof(strData), PSTR("WeckerAktiv_%i") , i);
-		if (Wecker[i].getStatus()) {
+		if (Wecker[i]->getStatus()) {
 			json[strData] = "*";  
 		} else {
 			json[strData] = " ";  
@@ -896,9 +776,9 @@ void saveWeckerConfig(void) {
 		configFile.close();
 		Serial.println(F("data saved"));
 
-		buzzer.On();
+		pBuzzer->On();
 		delay(10);
-		buzzer.Off();
+		pBuzzer->Off();
 	} else { 
 		Serial.println(F("failed to open config file for writing"));
 	}
@@ -911,26 +791,28 @@ String getJsonDataFromWeb (String _Server, String _Url) {
 	String stWeatherString;
 	u32GetWeatherTimeout = 5;		// set timeout to xs
 
-	Serial.println(TraceTime() + String("server ") + _Server);
-	Serial.println(TraceTime() + String("url    ") + _Url);
+	if (pWifiClient != nullptr) {
+		
+		Serial.println(TraceTime() + String("server ") + _Server);
+		Serial.println(TraceTime() + String("url    ") + _Url);
 
-	while (!wifiClient.connect(_Server, 80)) {
-		delay(500);
-		if (u32GetWeatherTimeout == 0) {goto error;}
+		while (!pWifiClient->connect(_Server, 80)) {
+			delay(500);
+			if (u32GetWeatherTimeout == 0) {goto error;}
+		}
+		
+		Serial.println(TraceTime() + String("connect to ") + Server);
+		pWifiClient->println(_Url);
+
+		while (!pWifiClient->available()) {
+			if (u32GetWeatherTimeout == 0) {goto error;}
+		}
+
+		Serial.println(TraceTime() + String("get data"));
+		stWeatherString = pWifiClient->readString();
+		Serial.println(TraceTime() + String("data received"));
+		return stWeatherString;
 	}
-	
-	Serial.println(TraceTime() + String("connect to ") + Server);
-	wifiClient.println(_Url);
-
-	while (!wifiClient.available()) {
-	  	if (u32GetWeatherTimeout == 0) {goto error;}
-    }
-
-	Serial.println(TraceTime() + String("get data"));
-	stWeatherString = wifiClient.readString();
-	Serial.println(TraceTime() + String("data received"));
-	return stWeatherString;
-
 error:
 	Serial.println(TraceTime() + String("**** connection error"));
 	return String(F("error"));
@@ -1004,7 +886,7 @@ void decodeCurrentWeather(String _WetterDaten) {
 void getWeatherForcast(void) {
 	char strUrl[150];
 	
-	if (HMenue.getAktualMenue() == 3) {
+	if (pHMenue->getAktualMenue() == 3) {
 		snprintf_P(strUrl,sizeof(strUrl), PSTR("GET /data/2.5/forecast/daily?q=%s&appid=%s&cnt=4&lang=de&mode=json&units=metric"), CityName1, ApiKey);
 	} else {
 		snprintf_P(strUrl,sizeof(strUrl), PSTR("GET /data/2.5/forecast/daily?q=%s&appid=%s&cnt=4&lang=de&mode=json&units=metric"), CityName2, ApiKey);
@@ -1033,7 +915,7 @@ void decodeWeatherForcast(String _WetterDaten) {
 	if (error) {
 		Serial.print(TraceTime() + "deserializeJson failed - ");
 		Serial.println(error.c_str());
-		showState(error.c_str());
+		pTft->showState(error.c_str());
 		return;
 	} else {
 		// get data from JSON-tree 
@@ -1087,25 +969,20 @@ void decodeWeatherForcast(String _WetterDaten) {
 			Serial.println(F("----------------------------------------------"));
 		}
 		
-		// clear middle area
-		tft.fillRect(5, Y_MIDDLE + 5, DISP_WIDTH - 10, H_MIDDLE - 10, TFT_BLACK);
-		tft.setFreeFont(DefaultFont);
-		tft.setTextSize(1);	
-		tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-
-		for (int i=0; i<u16Count; i++) {
+		pTft->clearMiddleArea();
+		
+		for (int i = 0; i < u16Count; i++) {
 			yield();
-			tft.setFreeFont(DefaultFont);
-			tft.drawCentreString(String(cDay[i]), 8 + ((i * 80) + 32), Y_MIDDLE + 8, 1);
-			showWeather(strIconForecast[i].c_str(), 8 + (i * 80), Y_MIDDLE + 30);
-			tft.drawCentreString(String(tempDayForecast[i], 0) + String("'C"), 8 + ((i * 80) + 32), Y_MIDDLE + 8 + 64 + 24, 1);
-			tft.drawCentreString(String(humidityForecast[i], 0) + String("%"), 8 + ((i * 80) + 32), Y_MIDDLE + 8 + 64 + 48, 1);
+			pTft->drawCentreString(String(cDay[i]), 8 + ((i * 80) + 32), pTft->getYMiddle() + 8, 1);
+			pTft->showWeather(strIconForecast[i].c_str(), 8 + (i * 80), pTft->getYMiddle() + 30);
+			pTft->drawCentreString(String(tempDayForecast[i], 0) + String("'C"), 8 + ((i * 80) + 32), pTft->getYMiddle() + 8 + 64 + 24, 1);
+			pTft->drawCentreString(String(humidityForecast[i], 0) + String("%"), 8 + ((i * 80) + 32), pTft->getYMiddle() + 8 + 64 + 48, 1);
 		}
 		
 		Serial.print(F("memory used : "));
 		Serial.println(jsonWeatherForecast.memoryUsage());
 
-		showState(convertStringToGerman(String("Wetter in ") + strCityNameForecast).c_str());
+		pTft->showState(convertStringToGerman(String("Wetter in ") + strCityNameForecast).c_str());
 	}
 }
 
@@ -1127,16 +1004,9 @@ void initIrq(void) {
 // interrupt switch 1 and 2 - only for test
 // -----------------------------------------------------------------------------------
 ICACHE_RAM_ATTR void irqSw01(void) {
-	if (sw01.Status()) {
-		led.On();
-		buzzer.On();
-	} else {
-		buzzer.Off();
-	}
 }
 
 ICACHE_RAM_ATTR void irqSw02(void) {
-	led.Off();
 }
 
 String TraceTime(void) {

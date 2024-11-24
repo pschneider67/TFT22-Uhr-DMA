@@ -15,12 +15,15 @@ typedef struct {
 class clMenue {
     public:
         ~clMenue(){}
-        clMenue (clIn *_switch, menue_t *_MenueArray, void (*_cbAnzeige)(const char*));
+        clMenue ();
+        
+        void init(clIn *_switch, menue_t *_MenueArray, clDisplay* _pDisplay);
+
         bool handle(void);
         uint16_t getAktualMenue(void);
 
     private:
-        void (*cbAnzeige)(const char*);	
+        clDisplay* pDisplay;   	
         clIn *Sw;
         uint16_t u16MenueCount;
         uint32_t u32Timer;
