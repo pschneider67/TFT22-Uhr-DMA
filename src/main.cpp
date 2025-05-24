@@ -34,31 +34,10 @@
 // ---------------------------------------------------------------------------------------------------
 #include "config.h"   
 // ---------------------------------------------------------------------------------------------------
-clDisplay* pTft = nullptr;  
-
-const char* ntpServer = "pool.ntp.org";   // used ntp server 
-const char* timezone  = "CET-1CEST,M3.5.0,M10.5.0/3";  // string for Europe / Berlin
-
-tm actualTime;
-
-// use openweather setup
-char ApiKey[34];
-char CityName1[20];
-char CityName2[20];
-
-const char Server[] PROGMEM = "api.openweathermap.org";
-char strIcon[6];
-
-const char WeekDay[7][5] PROGMEM = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr. ", "Sa. "};
-
+clDisplay* 				pTft 				 = nullptr;  
 WiFiManager*     	pWifiManager = nullptr;
-WiFiClient*      	pWifiClient = nullptr;
-ESP8266WebServer*	pWifiServer = nullptr;
-
-// Set the username and password for the webserver
-const char* http_username = "admin";
-const char* http_password = "13579";
-const char* cDnsName = "ESP_Wecker";
+WiFiClient*      	pWifiClient  = nullptr;
+ESP8266WebServer*	pWifiServer  = nullptr;
 
 // definition of GPIO outputs
 clOut* pLed = nullptr;
@@ -72,11 +51,31 @@ clIn* pSw01 = nullptr;
 stInput ParamSw02 = {SW_02, CHANGE, 40, 2000, irqSw02, POLARITY::POS, false};
 clIn* pSw02 = nullptr;
 
-char cVersion[] PROGMEM = "03.01";
+const char* ntpServer = "pool.ntp.org";   							// used ntp server 
+const char* timezone  = "CET-1CEST,M3.5.0,M10.5.0/3";  	// string for Europe / Berlin
+
+tm actualTime;
+
+// use openweather setup
+char ApiKey[34];
+char CityName1[20];
+char CityName2[20];
+
+const char Server[] PROGMEM = "api.openweathermap.org";
+char strIcon[6];
+
+const char WeekDay[7][5] PROGMEM = {"So. ", "Mo. ", "Di. ", "Mi. ", "Do. ", "Fr. ", "Sa. "};
+
+// Set the username and password for the webserver
+const char* http_username = "admin";
+const char* http_password = "13579";
+const char* cDnsName = "ESP_Wecker";
+
+char cVersion[] PROGMEM = "03.03";
 char cDatum[]   PROGMEM = __DATE__;
 
 // definition of alarm times
-stAlarmTime stWz[MAX_WECKER] = {
+stAlarmTime stWz[MAX_ALARM] = {
  	{WEEK_DAY::MO, 8, 00, false},
 	{WEEK_DAY::DI, 8, 00, false},
 	{WEEK_DAY::MI, 8, 00, false},
@@ -87,14 +86,14 @@ stAlarmTime stWz[MAX_WECKER] = {
 };
 
 // definition of arlam clocks
-std::array<clAlarm*, MAX_WECKER> Wecker = {
-    nullptr,
-    nullptr,
-    nullptr,
-    nullptr,
-    nullptr,
-    nullptr,
-    nullptr
+std::array<clAlarm*, MAX_ALARM> Alarm = {
+  nullptr,
+  nullptr,
+  nullptr,
+  nullptr,
+  nullptr,
+  nullptr,
+  nullptr
 };
 
 menue_t hmMenue[7] = { 
@@ -136,6 +135,7 @@ String strIconForecast[FORECAST];
 String strCityNameForecast;
 
 bool bGetWeather = false;
+bool bSaveConfigFile = false;
 
 uint32_t u32GetWeatherTimeout = 0;
 
@@ -164,13 +164,21 @@ void setup() {
 	initDisplay();
 	initNetwork();
 
-	for (int i = 0; i < MAX_WECKER; i++) {
-		Wecker[i] = new clAlarm;
-		Wecker[i]->init(&actualTime, pBuzzer, pSw02, &stWz[i]);
- 	}
+	for (int i = 0; i < MAX_ALARM; i++) {
+		Alarm[i] = new clAlarm;
+		if (Alarm[i] != nullptr) {
+			Alarm[i]->init(&actualTime, pBuzzer, pSw02, &stWz[i]);
+		} else {
+			Serial.println("*** error alarm config");
+		}
+	}
 
-	pHMenue->init(pSw01, hmMenue, pTft);
-	
+	if (pHMenue != nullptr) {
+		pHMenue->init(pSw01, hmMenue, pTft);
+	} else {
+		Serial.println("*** error menue config");
+	}
+
 	snprintf_P(ApiKey, sizeof(ApiKey), PSTR(API_KEY));
 	snprintf_P(CityName1, sizeof(CityName1), PSTR(CITY_NAME_1));
 	snprintf_P(CityName2, sizeof(CityName2), PSTR(CITY_NAME_2));
@@ -195,10 +203,9 @@ void setup() {
 	Serial.print(ESP.getFreeSketchSpace());
 	Serial.println(String(F(" byte")));
 
-	if (SPIFFS.begin()) {		// mount 
-
+	if (LittleFS.begin()) {		// mount 
 		FSInfo fs_info;
-		SPIFFS.info(fs_info);
+		LittleFS.info(fs_info);
 		Serial.println(".. FS mounted");
 
 		Serial.println("   blockSize:     " + (String)fs_info.blockSize);
@@ -208,7 +215,7 @@ void setup() {
 		Serial.println("   totalBytes:    " + (String)fs_info.totalBytes);
 		Serial.println("   usedBytes:     " + (String)fs_info.usedBytes);
 	} else {
-		Serial.println(".. FS mounted error");
+		Serial.println(".. FS mount error");
 	}
 
 	// init screen
@@ -217,10 +224,14 @@ void setup() {
 	
 	// get actuel time 
 	configTzTime(timezone, ntpServer);
-	getLocalTime(&actualTime);
-  pTft->showTime(actualTime, true);
+	
 	Serial.println("-- rtc sync with ntp");
- 	
+	if (!getLocalTime(&actualTime)) {
+		Serial.println("** ntp error");
+	};
+
+  pTft->showTime(actualTime, true);
+	 	
 	initIrq();
 	readConfigFile();		// read config data of clock
 	
@@ -249,6 +260,12 @@ void loop(void) {
 	pLed->SwPort(pSw01->Status());	// switch LED on with swith 1 - only for test
 
 	tftBrigthnees();
+
+	if (bSaveConfigFile) {
+		Serial.println(".. run saveAlarmConfig");
+		saveAlarmConfig();
+		bSaveConfigFile = false;
+	}
 
 	// sync rtc at 2:00
 	switch (u16StateRtcSync) {
@@ -341,9 +358,9 @@ bool changeAlarmTime(void) {
 			}
 			break;
 		case 10:
-			if (_u16Nr < MAX_WECKER) {	
-				if (Wecker[_u16Nr]->setNewAlarmTime()) {
-					saveWeckerConfig();
+			if (_u16Nr < MAX_ALARM) {	
+				if (Alarm[_u16Nr]->setNewAlarmTime()) {
+					bSaveConfigFile = true;
 					bResult = true;
 					u16Status = 0;
 				} 
@@ -411,10 +428,11 @@ bool runDeleteFile(void) {
 			}
 			break;
 		case 10:
-			if (SPIFFS.remove(cFile)) {
+			if (LittleFS.remove(cFile)) {
 				pTft->showState("config. deleted");
 			} else {
-				pTft->showState("delete error");
+				pTft->showState("delete error -> format");
+				LittleFS.format();
 			}
 			u32Timer = millis();
 			u16Status = 20;
@@ -469,7 +487,7 @@ bool runWeatherForcast (void) {
 				pTft->clearMiddleArea(); 
 				showAlarmTime(true);
 				pTft->showTime(actualTime, true);
-				bGetWeather = true;														// load weather icon
+				bGetWeather = true;											// load weather icon
 				pTft->showWeatherIcon(bild_44, pTft->getXPosWeatherNow(), pTft->getYPosWeatherNow());
 				u16Status = 0;
 			}
@@ -491,8 +509,8 @@ void showLabel(void) {
 }
 
 void showAlarmTime(bool _bForce) {
-	static String oldString[MAX_WECKER];
-	String strAlarmTime[MAX_WECKER];
+	static String oldString[MAX_ALARM];
+	String strAlarmTime[MAX_ALARM];
 	String strName;
 	String strHour;
 	String strMinute;
@@ -511,7 +529,7 @@ void showAlarmTime(bool _bForce) {
 	
 		//   0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
 		//   W 0 :   *   0 5 : 4 5   :        M  o     -  F  r
-		strAlarmTime[i] = Wecker[i]->getTimeString(); 		
+		strAlarmTime[i] = Alarm[i]->getTimeString(); 		
 		strName   = strAlarmTime[i].substring(0,6);	 			// "W0: * "		
 		strHour   = strAlarmTime[i].substring(6,8);				// "05"
 		strMinute = strAlarmTime[i].substring(9,11);			// "45"
@@ -594,16 +612,22 @@ IRAM_ATTR void irqTimer0(void) {
 // -----------------------------------------------------------------------------------
 void initGpio(void) {
 	Serial.println("-- init gpio");
-	pSw01->Init(ParamSw01);
-	pSw02->Init(ParamSw02);
-
-	// buzzer
-	pBuzzer->Init(BUZZER, POLARITY::NEG); // GIPO BUZZER low active
-	pBuzzer->Off();
-
-	// LED
-	pLed->Init(LED, POLARITY::POS); 			// GPIO LED high active
 	
+	if (pSw01 != nullptr && pSw02 != nullptr) {
+		pSw01->Init(ParamSw01);
+		pSw02->Init(ParamSw02);
+	} else {
+		Serial.println("*** error switch init");
+	}
+
+	if (pBuzzer != nullptr && pLed != nullptr) {
+		pBuzzer->Init(BUZZER, POLARITY::NEG); // GIPO BUZZER low active
+		pBuzzer->Off();
+		pLed->Init(LED, POLARITY::POS); 			// GPIO LED high active
+	} else {
+		Serial.println("*** error output init");
+	}
+
 	// init an switch on TFT backligth 
 	analogWriteRange(PWM_MAX);
 	analogWriteFreq(PWM_FREQ);
@@ -616,58 +640,71 @@ void initGpio(void) {
 void initDisplay(void) {
 	delay(1000);
 	Serial.println("-- init dsplay");	
-	pTft->init();
-	pTft->setSwapBytes(true);				// used by push image function
-	pTft->setRotation(ROTATION_90);
-	pTft->fillScreen(TFT_BLACK);
-	pTft->setTextColor(TFT_WHITE, TFT_BLACK);
+	if (pTft != nullptr) {
+		pTft->init();
+		pTft->setSwapBytes(true);				// used by push image function
+		pTft->setRotation(ROTATION_90);
+		pTft->fillScreen(TFT_BLACK);
+		pTft->setTextColor(TFT_WHITE, TFT_BLACK);
+	} else {
+		Serial.println("*** error display init");
+	}
 }
 
 // -----------------------------------------------------------------------------------
 // init network
 // -----------------------------------------------------------------------------------
 void initNetwork(void) {
-	pWifiManager->setAPCallback(wifiCallback);
-	pWifiManager->setSaveConfigCallback(wifiCallbackSaveConfig);
+	if (pWifiManager != nullptr && pTft != nullptr) {
 
-	pTft->clearDisplay();
-	pTft->setCursor(0, 30);
-	pTft->setTextSize(1);	
-	pTft->drawString(".. start WLan", 10, 10);
+		pWifiManager->setAPCallback(wifiCallback);
+		pWifiManager->setSaveConfigCallback(wifiCallbackSaveConfig);
 
-	if (pWifiManager->autoConnect("ESP_TFT_UHR")) {
-		pTft->drawString(".. WLan connected", 10, 40);
-		String strText = String(".. ") + WiFi.SSID() + String(" - ") + WiFi.localIP().toString();
-		pTft->drawString(strText, 10, 70);
+		pTft->clearDisplay();
+		pTft->setCursor(0, 30);
+		pTft->setTextSize(1);	
+		pTft->drawString(".. start WLan", 10, 10);
 
-		MDNS.begin(cDnsName);
+		if (pWifiManager->autoConnect("ESP_TFT_UHR")) {
+			pTft->drawString(".. WLan connected", 10, 40);
+			String strText = String(".. ") + WiFi.SSID() + String(" - ") + WiFi.localIP().toString();
+			pTft->drawString(strText, 10, 70);
 
- 		pWifiServer->on("/", handleIndex);
-		pWifiServer->on("/values", HTTP_GET, handleValues);
-	  pWifiServer->on("/config", handleConfig);
-		pWifiServer->on("/delete", handleDelete);
-		pWifiServer->on("/weather", handleWeather);
-		pWifiServer->on("/Authentication", handleAuthentication);
-		pWifiServer->on("/logout", handleLogout);
-		pWifiServer->begin();
-		pTft->drawString(".. server online", 10, 100);
-		Serial.println(".. server online");
-		delay(4000);
+			MDNS.begin(cDnsName);
+
+			pWifiServer->on("/", handleIndex);
+			pWifiServer->on("/values", HTTP_GET, handleValues);
+			pWifiServer->on("/config", handleConfig);
+			pWifiServer->on("/delete", handleDelete);
+			pWifiServer->on("/weather", handleWeather);
+			pWifiServer->on("/Authentication", handleAuthentication);
+			pWifiServer->on("/logout", handleLogout);
+			pWifiServer->begin();
+			pTft->drawString(".. server online", 10, 100);
+			Serial.println(".. server online");
+			delay(4000);
+		} else {
+			pTft->drawString(".. WLan error !!", 10, 40);
+			pTft->drawString(".. ESP Reset !!", 10, 70);
+			delay(3000);
+			while (true) {;}
+		}
 	} else {
-		pTft->drawString(".. WLan error !!", 10, 40);
-		pTft->drawString(".. ESP Reset !!", 10, 70);
-		delay(3000);
-		while (true) {;}
-	}
+		Serial.println("*** error wifi manager init");
+	}	
 }
 
 void wifiCallback(WiFiManager *_pWiFiManager) {
-	pTft->fillScreen(TFT_BLACK);
-	pTft->println();
-	pTft->println(".. Konfig. Mode aktiv");
-	pTft->print(".. ");
-	pTft->println(WiFi.softAPIP());
-	pTft->println(String(".. ") + _pWiFiManager->getConfigPortalSSID());
+	if (pTft != nullptr && _pWiFiManager != nullptr) {
+		pTft->fillScreen(TFT_BLACK);
+		pTft->println();
+		pTft->println(".. Konfig. Mode aktiv");
+		pTft->print(".. ");
+		pTft->println(WiFi.softAPIP());
+		pTft->println(String(".. ") + _pWiFiManager->getConfigPortalSSID());
+	} else {
+		Serial.println("*** error wifi callback init");
+	}
 }
 
 // callback notifying us of the need to save config
@@ -679,10 +716,12 @@ void wifiCallbackSaveConfig () {
 // init file system and read configuration
 // -----------------------------------------------------------------------------------
 void readConfigFile(void) {
-	if (SPIFFS.exists("/config.json")) {
+	if (LittleFS.exists("/config.json")) {
+		
 		// file exists, reading and loading
 		Serial.println(".. open config file");
-		File configFile = SPIFFS.open("/config.json", "r");
+		File configFile = LittleFS.open("/config.json", "r");
+		
 		if (configFile) {
 			Serial.println(".. config file read");
 			size_t size = configFile.size();
@@ -692,95 +731,108 @@ void readConfigFile(void) {
 
 			configFile.readBytes(buf.get(), size);
 
-			DynamicJsonDocument json(1024);
+			JsonDocument json;
 			auto deserializeError = deserializeJson(json, buf.get());
 			serializeJson(json, Serial);
 			
 			if (!deserializeError) {
 				Serial.println(F("\nparsed json"));
 				char strData[20];  
-				char strMaxWecker[5];
+				char strMaxAlarm[5];
 
 				snprintf_P(strData, sizeof(strData), PSTR("MaxWecker"));
-				strcpy(strMaxWecker, json[strData]);
-				String Data = (String)strMaxWecker;
+				strcpy(strMaxAlarm, json[strData]);
+				String Data = (String)strMaxAlarm;
 				int iMaxWecker = Data.toInt();
 				
 				for (int i = 0; i < iMaxWecker; i++) {
-					if (Wecker[i] != nullptr) {
+					if (Alarm[i] != nullptr) {
 						snprintf_P(strData, sizeof(strData), PSTR("WeckerStunden_%i") , i);
-						Wecker[i]->setNewAlarmHour(json[strData]);
+						Alarm[i]->setNewAlarmHour(json[strData]);
 												
 						snprintf_P(strData, sizeof(strData), PSTR("WeckerMinuten_%i") , i);
-						Wecker[i]->setNewAlarmMinute(json[strData]);
+						Alarm[i]->setNewAlarmMinute(json[strData]);
 						
 						snprintf_P(strData, sizeof(strData), PSTR("WeckerTage_%i") , i);
-						Wecker[i]->setNewWeekDay(json[strData]);
+						Alarm[i]->setNewWeekDay(json[strData]);
 						
 						snprintf_P(strData, sizeof(strData), PSTR("WeckerAktiv_%i") , i);
 						if (json[strData] == String('*')) {
 							Serial.println((String)".. Wecker " + String(i) + (String)" ist aktiv");
-							Wecker[i]->Start();
+							Alarm[i]->Start();
 						} else {
-							Wecker[i]->Stop();
+							Alarm[i]->Stop();
 						}
 					}	else {
 							Serial.println((String)".. fail to read config data for alarm " + String(i));
 							return;
 					}
 				}					
-				Serial.print(F("memory used : "));
-				Serial.println(json.memoryUsage());
 			} else {
 				Serial.println(".. failed to load json config");
 			}
 			configFile.close();
 		}
-  	} else {
-    	Serial.println(".. failed to open config file");
-  	}
+ 	} else {
+   	Serial.println(".. failed to open config file");
+	}
 }
 
-void saveWeckerConfig(void) {
-	Serial.println(F("alarm clock configuration saved"));
-	DynamicJsonDocument json(1024);
+void saveAlarmConfig(void) {
+	JsonDocument json;	
 	char strData[20]; 
 	
 	snprintf_P(strData, sizeof(strData), PSTR("MaxWecker"));
-	json[strData] = (String)MAX_WECKER;
+	json[strData] = (String)MAX_ALARM;
 
-	for(int i = 0; i < MAX_WECKER; i++) {
-		snprintf_P(strData, sizeof(strData), PSTR("WeckerStunden_%i") , i);
-		json[strData] = Wecker[i]->getAlarmHour(); 
-		
-		snprintf_P(strData, sizeof(strData), PSTR("WeckerMinuten_%i") , i);
-		json[strData] = Wecker[i]->getAlarmMinute();
-		
-		snprintf_P(strData, sizeof(strData), PSTR("WeckerTage_%i") , i);
-		json[strData] = Wecker[i]->getAlarmDay(); 
-		
-		snprintf_P(strData, sizeof(strData), PSTR("WeckerAktiv_%i") , i);
-		if (Wecker[i]->getStatus()) {
-			json[strData] = "*";  
+	for(int i = 0; i < MAX_ALARM; i++) {
+		if (Alarm[i] != nullptr) {	
+			snprintf_P(strData, sizeof(strData), PSTR("WeckerStunden_%i") , i);
+			json[strData] = Alarm[i]->getAlarmHour(); 
+			
+			snprintf_P(strData, sizeof(strData), PSTR("WeckerMinuten_%i") , i);
+			json[strData] = Alarm[i]->getAlarmMinute();
+			
+			snprintf_P(strData, sizeof(strData), PSTR("WeckerTage_%i") , i);
+			json[strData] = Alarm[i]->getAlarmDay(); 
+			
+			snprintf_P(strData, sizeof(strData), PSTR("WeckerAktiv_%i") , i);
+			if (Alarm[i]->getStatus()) {
+				json[strData] = "*";  
+			} else {
+				json[strData] = " ";  
+			}
 		} else {
-			json[strData] = " ";  
-		}
+			Serial.println("*** error alarm config");
+		}	
 	}
 
-	File configFile = SPIFFS.open("/config.json", "w");
-	Serial.println();
+	uint32_t u32FreeMemory = ESP.getFreeHeap();
+
+	Serial.print(".. free heap: ");
+  Serial.println(u32FreeMemory);
+
+	if (u32FreeMemory < 5200) {
+		Serial.println("** cannot write config file, memory to less !");
+		return;
+	}
+
+	Serial.println(".. open file ");
+	File configFile = LittleFS.open("/config.json", "w");
+	Serial.println(".. file open ok ");
 
 	if (configFile) {
 		serializeJson(json, Serial);
 		serializeJson(json, configFile);
 		configFile.close();
-		Serial.println(F("data saved"));
+		Serial.println(F(".. data saved"));
 
 		pBuzzer->On();
 		delay(10);
 		pBuzzer->Off();
+		Serial.println(F(".. alarm clock configuration saved"));
 	} else { 
-		Serial.println(F("failed to open config file for writing"));
+		Serial.println(F(".. failed to open config file for writing"));
 	}
 }
 
@@ -813,6 +865,7 @@ String getJsonDataFromWeb (String _Server, String _Url) {
 		Serial.println(TraceTime() + String("data received"));
 		return stWeatherString;
 	}
+
 error:
 	Serial.println(TraceTime() + String("**** connection error"));
 	return String(F("error"));
@@ -838,7 +891,7 @@ void decodeCurrentWeather(String _WetterDaten) {
 	}
 
 	Serial.println(TraceTime() + "decodeCurrentWeather");
-	DynamicJsonDocument jsonWeatherToday(900);
+	JsonDocument jsonWeatherToday;
 		
 	DeserializationError error = deserializeJson(jsonWeatherToday, _WetterDaten);
 
@@ -877,9 +930,6 @@ void decodeCurrentWeather(String _WetterDaten) {
 		Serial.print(F("Icon Name    : "));
 		Serial.println(strIconToday);
 		Serial.println(F("----------------------------------------------"));
-
-		Serial.print(F("memory used : "));
-		Serial.println(jsonWeatherToday.memoryUsage());
 	}
 }
 
@@ -900,7 +950,7 @@ void getWeatherForcast(void) {
 
 void decodeWeatherForcast(String _WetterDaten) {
 	Serial.println(String("Free Heap Size - ") + ESP.getFreeHeap());
-	DynamicJsonDocument jsonWeatherForecast(2500);
+	JsonDocument jsonWeatherForecast;
 	Serial.println(String("Free Heap Size - ") + ESP.getFreeHeap());
 	
 	uint16_t u16Count = 0;
@@ -928,14 +978,14 @@ void decodeWeatherForcast(String _WetterDaten) {
 	
 		for (int i = 0; i < u16Count; i++) {
 			yield();
-			strCityNameForecast  = jsonWeatherForecast["city"]["name"].as<String>();
-			ForecastTime         = jsonWeatherForecast["list"][i]["dt"].as<long int>();
-			tempDayForecast[i]   = jsonWeatherForecast["list"][i]["temp"]["day"].as<float>();
-			tempNigthForecast[i] = jsonWeatherForecast["list"][i]["temp"]["nigth"].as<float>(); 
-			tempMinForecast[i]   = jsonWeatherForecast["list"][i]["temp"]["min"].as<float>();
-			tempMaxForecast[i]   = jsonWeatherForecast["list"][i]["temp"]["max"].as<float>();
-			humidityForecast[i]  = jsonWeatherForecast["list"][i]["humidity"].as<float>();
-			pressureForecast[i]  = jsonWeatherForecast["list"][i]["pressure"].as<float>();
+			strCityNameForecast   = jsonWeatherForecast["city"]["name"].as<String>();
+			ForecastTime          = jsonWeatherForecast["list"][i]["dt"].as<long int>();
+			tempDayForecast[i]    = jsonWeatherForecast["list"][i]["temp"]["day"].as<float>();
+			tempNigthForecast[i]  = jsonWeatherForecast["list"][i]["temp"]["nigth"].as<float>(); 
+			tempMinForecast[i]    = jsonWeatherForecast["list"][i]["temp"]["min"].as<float>();
+			tempMaxForecast[i]    = jsonWeatherForecast["list"][i]["temp"]["max"].as<float>();
+			humidityForecast[i]   = jsonWeatherForecast["list"][i]["humidity"].as<float>();
+			pressureForecast[i]   = jsonWeatherForecast["list"][i]["pressure"].as<float>();
 
 			strWeatherForecast[i] = jsonWeatherForecast["list"][i]["weather"][0]["description"].as<String>();
 			strIconForecast[i]    = jsonWeatherForecast["list"][i]["weather"][0]["icon"].as<String>();
@@ -979,9 +1029,6 @@ void decodeWeatherForcast(String _WetterDaten) {
 			pTft->drawCentreString(String(humidityForecast[i], 0) + String("%"), 8 + ((i * 80) + 32), pTft->getYMiddle() + 8 + 64 + 48, 1);
 		}
 		
-		Serial.print(F("memory used : "));
-		Serial.println(jsonWeatherForecast.memoryUsage());
-
 		pTft->showState(convertStringToGerman(String("Wetter in ") + strCityNameForecast).c_str());
 	}
 }

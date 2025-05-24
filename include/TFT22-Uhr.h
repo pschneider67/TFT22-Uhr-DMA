@@ -10,7 +10,7 @@
 #include "Arduino.h"
 
 #include <string.h>
-#include <FS.h>
+#include <LittleFS.h>
 #include <time.h>
 #include <ArduinoJson.h>
 #include <ArduinoOTA.h> 		// OTA Upload via ArduinoIDE
@@ -63,7 +63,7 @@ String getJsonsDataFromWeb (String, String);
 void wifiCallbackSaveConfig(void);
 void wifiCallback(WiFiManager *myWiFiManager);
 
-void saveWeckerConfig(void);
+void saveAlarmConfig(void);
 void showWeatherString(void);
 bool changeAlarmTime(void);  
 

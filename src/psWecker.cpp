@@ -9,11 +9,11 @@
 #include "TFT22-Uhr.h"
 
 uint16_t clAlarm::sAlarmNumber = 0;
-clAlarm *clAlarm::pclAlarm[MAX_WECKER];
+clAlarm *clAlarm::pclAlarm[MAX_ALARM];
 
 clAlarm::clAlarm (void) {
     u16AlarmNumber = sAlarmNumber++;        // count instances
-    if (u16AlarmNumber < MAX_WECKER) {      // save pointer to instance for static functions
+    if (u16AlarmNumber < MAX_ALARM) {      // save pointer to instance for static functions
         pclAlarm[u16AlarmNumber] = this;
     } 
 }
@@ -384,7 +384,7 @@ bool clAlarm::enableAlarmTime(clIn *_switch) {
 			}
 
 			if (millis() > (u32AktiveZeit + 2000)) {
-                saveWeckerConfig();
+                saveAlarmConfig();
 			    u16Status = 0;
 			}
 			break;
@@ -408,7 +408,7 @@ void clAlarm::Check(void) {
     uint16_t u16Count = 0;
      
     for (u16Count = 0; u16Count < sAlarmNumber; u16Count++) {
-        if (u16Count >= MAX_WECKER) {
+        if (u16Count >= MAX_ALARM) {
             break;
         }
 

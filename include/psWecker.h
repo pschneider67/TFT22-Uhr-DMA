@@ -7,7 +7,7 @@
 
 #pragma once
 
-#define MAX_WECKER    7
+#define MAX_ALARM    7
 
 enum class WEEK_DAY: uint16_t {
     SO = 0,
@@ -64,7 +64,7 @@ class clAlarm {
         clOut *buzzer = nullptr;
         clIn *cSwitch = nullptr;
 
-        static clAlarm *pclAlarm[MAX_WECKER];
+        static clAlarm *pclAlarm[MAX_ALARM];
         static uint16_t sAlarmNumber;
                         
         stAlarmTime AlarmTime;

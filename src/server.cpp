@@ -11,12 +11,14 @@ static char cHtmlValuesToSend[60];
 static bool bAuthentication = false;
 
 extern ESP8266WebServer* pWifiServer;
-extern std::array<clAlarm*, MAX_WECKER> Wecker;
-extern stAlarmTime stWz[MAX_WECKER];
+extern std::array<clAlarm*, MAX_ALARM> Alarm;
+extern stAlarmTime stWz[MAX_ALARM];
 
 // Set the username and password for the webserver
 extern const char* http_username;
 extern const char* http_password;
+
+extern bool bSaveConfigFile;
 
 bool getAuthentication(void) {
 	return bAuthentication;
@@ -65,20 +67,20 @@ void handleValues() {
 		Serial.println("** handleValues");
 		char cDummy[20];
 
-		for (int i=0; i < MAX_WECKER; i++) {
-			snprintf_P(cDummy, sizeof(cDummy), PSTR("%02d:"), Wecker[i]->getAlarmHourValue());
+		for (int i=0; i < MAX_ALARM; i++) {
+			snprintf_P(cDummy, sizeof(cDummy), PSTR("%02d:"), Alarm[i]->getAlarmHourValue());
 			if (i == 0) {
 				strcpy(cHtmlValuesToSend, cDummy);
 			} else {	
 				strcat(cHtmlValuesToSend, cDummy);
 			}
-			snprintf_P(cDummy, sizeof(cDummy), PSTR("%02d,"), Wecker[i]->getAlarmMinuteValue());
+			snprintf_P(cDummy, sizeof(cDummy), PSTR("%02d,"), Alarm[i]->getAlarmMinuteValue());
 			strcat(cHtmlValuesToSend, cDummy);
-			snprintf_P(cDummy, sizeof(cDummy), PSTR("%d,"), Wecker[i]->getAlarmWeekDayValue());
+			snprintf_P(cDummy, sizeof(cDummy), PSTR("%d,"), Alarm[i]->getAlarmWeekDayValue());
 			strcat(cHtmlValuesToSend, cDummy);
-			snprintf_P(cDummy, sizeof(cDummy), PSTR("%d"), Wecker[i]->getStatus());
+			snprintf_P(cDummy, sizeof(cDummy), PSTR("%d"), Alarm[i]->getStatus());
 			strcat(cHtmlValuesToSend, cDummy);
-			if (i < (MAX_WECKER - 1)) {
+			if (i < (MAX_ALARM - 1)) {
 				strcat(cHtmlValuesToSend, ",");
 			}
 		}
@@ -96,7 +98,7 @@ void handleIndex() {
 
 void handleConfig() {
 	if (checkAuthentication()) {
-		Serial.println("** handleConfig");
+		Serial.println(".. handleConfig");
 		String stValueName;
 		bool bSaveData = false;
 		bool bSaveAll = false;
@@ -105,7 +107,7 @@ void handleConfig() {
 			bSaveAll = true;
 		}
 
-		for (int i=0; i < MAX_WECKER; i++) {
+		for (int i=0; i < MAX_ALARM; i++) {
 			stValueName = String("httpB") + String(i);
 			if (pWifiServer->hasArg(stValueName) || bSaveAll) {
 				Serial.println("set alarm");	
@@ -113,8 +115,8 @@ void handleConfig() {
 				stValueName = String("httpWz") + String(i);
 				Serial.println(stValueName);
 				if (pWifiServer->hasArg(stValueName)) {
-					Wecker[i]->setNewAlarmHour(pWifiServer->arg(stValueName).substring(0,2));
-					Wecker[i]->setNewAlarmMinute(pWifiServer->arg(stValueName).substring(3));
+					Alarm[i]->setNewAlarmHour(pWifiServer->arg(stValueName).substring(0,2));
+					Alarm[i]->setNewAlarmMinute(pWifiServer->arg(stValueName).substring(3));
 					bSaveData = true;
 				} else {
 					bSaveData = false;
@@ -122,21 +124,22 @@ void handleConfig() {
 				stValueName = String("httpTage") + String(i);
 				Serial.println(stValueName);
 				if (pWifiServer->hasArg(stValueName)) {
-					Wecker[i]->setNewWeekDay(pWifiServer->arg(stValueName).substring(0,2));
+					Alarm[i]->setNewWeekDay(pWifiServer->arg(stValueName).substring(0,2));
 				}
 				stValueName = String("httpAktiv") + String(i);
 				Serial.println(stValueName);
 				if (pWifiServer->hasArg(stValueName)) {
-					Wecker[i]->Start();
+					Alarm[i]->Start();
 					Serial.println((String)".. Wecker " + String(i) + (String)" ist aktiv");
 				} else if (bSaveData) {
-					Serial.println((String)".. Wecker " + String(i) + (String)" ist nicht aktiv");
-					Wecker[i]->Stop();	
+					Serial.println((String)".. Alarm " + String(i) + (String)" ist nicht aktiv");
+					Alarm[i]->Stop();	
 				}
 			}
 
-			if (i == (MAX_WECKER - 1)) {
-				saveWeckerConfig();
+			if (i == (MAX_ALARM - 1)) {
+				bSaveConfigFile = true;
+				//saveAlarmConfig();
 			}
 		}
 
@@ -147,13 +150,13 @@ void handleConfig() {
 void handleDelete() {
 	if (checkAuthentication()) {
 		Serial.println("reset alarm");	
-		SPIFFS.remove("/config.json");
+		LittleFS.remove("/config.json");
 
-		for (int i=0; i < MAX_WECKER; i++) {
-			Wecker[i]->setTime(&stWz[i]);
+		for (int i=0; i < MAX_ALARM; i++) {
+			Alarm[i]->setTime(&stWz[i]);
 		}
 		
-		saveWeckerConfig();
+		bSaveConfigFile = true;
 		readConfigFile();
 		pWifiServer->send(200, "text/html", cHtmlDelete);
 	}
